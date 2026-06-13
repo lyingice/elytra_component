@@ -1,0 +1,687 @@
+================================================================================
+  鞘翅组件 (Elytra Component) 模组 — 开发实现思路笔记
+  Minecraft NeoForge 1.21.1
+================================================================================
+
+本文件记录 Elytra Component 模组的完整架构设计、核心机制实现思路，
+以及每个关键决策背后的原因。适用于后续类似模组开发的参考。
+
+================================================================================
+目录
+================================================================================
+  一、项目概述与核心目标
+  二、整体架构图
+  三、核心层：DataComponent 数据存储
+  四、数据层：JSON 驱动注册系统
+  五、逻辑层：事件驱动的交互处理器
+  六、Mixin 层：Item 混入实现飞行能力
+  七、渲染层：自定义鞘翅纹理渲染
+  八、命令层：调试与运维命令
+  九、兼容层：JEI 集成
+  十、API 层：对外暴露的公共接口
+  十一、各模块协作流程
+  十二、关键设计模式与经验总结
+
+
+================================================================================
+一、项目概述与核心目标
+================================================================================
+
+1.1 要解决的核心问题
+  - Minecraft 中鞘翅和胸甲是互斥的（不能同时穿），玩家必须在防御和飞行之间做取舍。
+  - 其他模组添加的自定义鞘翅无法与胸甲合并使用。
+  - 需要一种可扩展的、数据驱动的方案来注册任意物品作为鞘翅源。
+
+1.2 核心设计目标
+  [x] 胸甲 + 鞘翅 = 带飞行能力的胸甲
+  [x] 原鞘翅数据（耐久、附魔、自定义名称）100% 保留并可还原
+  [x] 任何模组的鞘翅都能注册，无需该模组主动适配
+  [x] 通过数据包即可注册，无需编写代码
+  [x] 安装/拆卸/修复都有直观的玩家操作方式
+  [x] 视觉上要渲染对应的鞘翅纹理
+
+1.3 技术栈
+  - 平台: NeoForge 21.1 (Minecraft 1.21.1)
+  - 数据存储: DataComponent (NeoForge 1.21 新机制，替代旧的 NBT/Capability)
+  - 数据驱动: SimpleJsonResourceReloadListener (数据包系统)
+  - 事件系统: NeoForge EventBus
+  - 渲染: ElytraLayer 继承 + 自定义纹理解析
+  - 混入: Mixin (IItemExtension)
+  - 构建: MCreator 生成框架 + 手动编码
+
+
+================================================================================
+二、整体架构图
+================================================================================
+
+  +------------------------------------------------------------------+
+  |                     ElytraComponentMod (主类)                      |
+  |  入口：@Mod("elytra_component")                                   |
+  |  职责：注册组件、注册监听器、网络初始化                              |
+  +------------------------------------------------------------------+
+           |                     |                     |
+           v                     v                     v
+  +-------------------+  +----------------+  +-------------------+
+  |  ModComponents    |  | ReloadListener |  | ElytraComponent   |
+  |  (DataComponent   |  | (数据包加载)    |  | Command           |
+  |   注册中心)        |  |                |  | (调试命令)         |
+  +-------------------+  +----------------+  +-------------------+
+           |                     |
+           v                     v
+  +-------------------+  +----------------+
+  |  ElytraComponent  |  |  Elytra        |
+  |  (运行时数据载体)   |  |  Component    |
+  |  Record + Codec   |  |  Definition    |
+  |  + StreamCodec)   |  |  (JSON定义)    |
+  +-------------------+  +----------------+
+           |
+           | 被多个 Handler 读取/写入
+           v
+  +------------------------------------------+
+  |  Handler 层 (事件驱动)                     |
+  |  + ElytraAttachHandler  (安装)            |
+  |  + ElytraDetachHandler  (拆卸)            |
+  |  + ElytraFlightHandler  (飞行耐久消耗)     |
+  |  + ElytraRepairHandler  (修复)            |
+  |  + ElytraTooltipHandler (提示信息)         |
+  +------------------------------------------+
+
+  +------------------------------------------+
+  |  Client 层                                |
+  |  + ComponentElytraLayer (渲染层)          |
+  |  + ClientModEvents      (渲染注册)        |
+  +------------------------------------------+
+
+  +------------------------------------------+
+  |  Mixin 层                                 |
+  |  + ItemMixin (canElytraFly/飞行tick)      |
+  +------------------------------------------+
+
+  +------------------------------------------+
+  |  Compat 层                                |
+  |  + ElytraComponentJeiPlugin (JEI信息)    |
+  +------------------------------------------+
+
+  +------------------------------------------+
+  |  API 层                                   |
+  |  + ElytraComponentAPI (对外公共接口)       |
+  +------------------------------------------+
+
+
+================================================================================
+三、核心层：DataComponent 数据存储
+================================================================================
+
+3.1 为什么选择 DataComponent 而非 NBT/Capability
+  - Minecraft 1.21 引入了 DataComponent 系统（原为 ItemComponent），用于替代
+    旧的 ItemStack NBT 存储。
+  - 优势：类型安全、Codec 序列化/反序列化、内置网络同步支持、
+           与 Minecraft 原版组件系统统一。
+  - 劣势：需要注册 DataComponentType，不能像 NBT 那样随意读写。
+
+3.2 注册中心 (ModComponents.java)
+  文件: src/main/java/net/ec/elytracomponent/component/ModComponents.java
+  关键代码:
+    DeferredRegister<DataComponentType<?>> COMPONENTS =
+        DeferredRegister.create(Registries.DATA_COMPONENT_TYPE, MODID);
+
+  注册了两个组件：
+  [1] ELYTRA_COMPONENT (elytra_component)
+      - 类型: DataComponentType<ElytraComponent>
+      - 存储胸甲上的鞘翅完整信息
+      - persistent(ElytraComponent.CODEC)          → 持久化存储
+      - networkSynchronized(ElytraComponent.STREAM_CODEC) → 网络同步
+
+  [2] CAN_ELYTRA_FLY (can_elytra_fly)
+      - 类型: DataComponentType<Boolean>
+      - 标记胸甲是否可以滑翔
+      - 安装时自动设为 true，拆卸时移除
+
+  注册时机: 在 Mod 构造器中通过 modEventBus 注册
+    ModComponents.register(modEventBus);
+
+3.3 运行时数据载体 (ElytraComponent.java)
+  文件: src/main/java/net/ec/elytracomponent/component/ElytraComponent.java
+
+  采用 Java 16+ Record 类型，不可变数据结构（函数式风格）。
+  每次"修改"都创建新实例（例如耐久消耗）。
+
+  字段设计:
+    sourceNamespace        : ResourceLocation  // 来源模组ID
+    originalElytraId       : ResourceLocation  // 原鞘翅物品ID
+    originalElytraComponents: DataComponentMap // 原鞘翅的完整组件数据（100%还原关键）
+    currentDurability      : int               // 当前耐久
+    maxDurability          : int               // 最大耐久
+    textureOverride        : @Nullable ResourceLocation // 纹理覆盖
+    extraData              : @Nullable CompoundTag     // 扩展数据
+
+  设计要点:
+  - originalElytraComponents 是整个系统的关键——它保存了原鞘翅的完整物品数据
+    （包括附魔、自定义名称、属性修饰器等），拆卸时直接 applyComponents 即可
+    100% 还原，无需手动处理任何特殊数据。
+  - 提供了 CODEC（持久化 Codec）和 STREAM_CODEC（网络流 Codec）两套序列化方案。
+  - STREAM_CODEC 使用手动编码而非 composite()，因为字段超过 composite() 的限制。
+  - extraData 使用 CompoundTag 作为未来扩展的兜底方案，可以在不修改 Record 结构
+    的情况下附加额外数据。
+
+
+================================================================================
+四、数据层：JSON 驱动注册系统
+================================================================================
+
+4.1 设计思路
+  目标是让整合包作者可以不写一行 Java 代码，仅通过 JSON 文件即可注册任意鞘翅。
+  这要求系统：
+  [1] 在游戏加载时自动扫描数据包目录
+  [2] 解析 JSON，按固定 schema 转换为 Java 对象
+  [3] 提供运行时查询（通过物品ID查找定义，通过组件ID查找定义）
+  [4] 支持热重载（/reload）
+
+4.2 定义模型 (ElytraComponentDefinition.java)
+  文件: src/main/java/net/ec/elytracomponent/data/ElytraComponentDefinition.java
+
+  使用嵌套 Record 设计（Java 16+）：
+    ElytraComponentDefinition (顶层)
+      ├── TextureInfo      (纹理配置)
+      ├── DurabilityInfo   (耐久配置，含 calculateDurability 计算方法)
+      ├── RenderInfo       (渲染配置)
+      └── CompatibilityInfo(兼容性配置)
+
+  关键设计——耐久计算:
+    DurabilityInfo.calculateDurability(int originalMaxDurability) {
+        int calculated = Math.round(base * multiplier);
+        // 原鞘翅耐久更高则取原鞘翅值（保护原附魔比例）
+        if (originalMaxDurability > calculated) calculated = originalMaxDurability;
+        return Math.min(calculated, maxDurability);
+    }
+  这个设计保证了：如果一个模组的鞘翅本身有 2000 点耐久，安装到组件后至少保留
+  2000 点，不会因为配置的 base=432 而降级。
+
+  紧凑构造器:
+    DurabilityInfo(int base, float multiplier, int maxDurability) {
+        this.maxDurability = maxDurability > 0 ? maxDurability : Integer.MAX_VALUE;
+    }
+    将 max=0 解释为"无上限"，简化了 JSON 配置。
+
+4.3 加载器 (ElytraComponentReloadListener.java)
+  文件: src/main/java/net/ec/elytracomponent/data/ElytraComponentReloadListener.java
+
+  继承 SimpleJsonResourceReloadListener:
+    super(GSON, "elytra_components");
+    → 自动扫描所有 data/<namespace>/elytra_components.json 文件
+
+  JSON 结构预期:
+    {
+      "elytra_components": [ { ... }, { ... } ]
+    }
+
+  注册优先级:
+    1. 代码注册 (CODE_REGISTRY) ← 最高优先级
+    2. 数据包 JSON 注册 ← 中等优先级
+
+  数据结构:
+    REGISTRY:   Map<String, ElytraComponentDefinition>  // componentId → 定义
+    CODE_REGISTRY: Map<String, ElytraComponentDefinition> // 代码注册（隔离存储）
+    ITEM_INDEX: Map<ResourceLocation, ElytraComponentDefinition> // 反向索引
+
+  反向索引设计目的:
+    - 当玩家手持鞘翅右键时，需要快速判断该物品是否是注册的组件源
+    - 从物品ID 查定义比遍历全表 O(1) vs O(n)
+    - 每次 reload 后重建索引
+
+  apply() 方法执行流程:
+    1. 清空 REGISTRY
+    2. 写入 CODE_REGISTRY（高优先级）
+    3. 遍历所有 JSON 条目，解析并写入（跳过已被 CODE 占用的 componentId）
+    4. 重建反向索引
+
+  安全设计:
+    - 整个 parseDefinition 包裹在 try-catch 中，单个定义解析失败不影响整体
+    - 缺少必要字段（component_id、elytra_item、durability）时跳过并警告
+    - 不存在的物品不会导致崩溃，只在运行时查不到定义
+
+4.4 JSON 字段参考
+  字段映射到 Java 的对应关系：
+
+  JSON字段           Java类型                        必需?
+  component_id       String                           必需
+  elytra_item        ResourceLocation (自动解析)       必需
+  texture.elytra_layer       ResourceLocation (可选)   可选
+  texture.elytra_layer_glow  ResourceLocation (可选)   可选
+  texture.elytra_layer_overlay ResourceLocation (可选) 可选
+  durability.base     int (默认432)                    必需
+  durability.multiplier float (默认1.0)                可选
+  durability.max      int (默认0=无上限)               可选
+  render.tint_color   String (可选)                    可选
+  render.has_glow     boolean (默认false)              可选
+  render.glow_color   String (可选)                    可选
+  compatibility.required_mods    String[]              可选
+  compatibility.incompatible_with String[]             可选
+  tags                String[]                         可选
+
+
+================================================================================
+五、逻辑层：事件驱动的交互处理器
+================================================================================
+
+5.1 总体设计模式
+  - 所有 Handler 都注册在 NeoForge.EVENT_BUS 上
+  - 使用 @EventBusSubscriber(modid = ...) 注解自动注册
+  - 监听 PlayerInteractEvent 的三个变体：RightClickItem / RightClickBlock / EntityInteract
+  - 客户端先行验证（level.isClientSide 提前 return），服务端执行实际逻辑
+  - 成功处理后调用 event.setCanceled(true) 阻止其他逻辑
+
+5.2 安装处理器 (ElytraAttachHandler.java)
+  文件: src/main/java/net/ec/elytracomponent/handler/ElytraAttachHandler.java
+
+  触发条件（同时满足）：
+    [1] 主手物品是已注册的鞘翅组件源
+    [2] 副手是粘液球
+    [3] 穿着胸甲
+
+  为什么不使用 Crafting/Smithing 配方？
+    - 本系统的交互是"将鞘翅安装到正在穿着的胸甲上"，这是原版锻造台无法实现的
+    - 手持右键操作更直观，不需要额外方块
+    - 相比配方系统，这种交互方式可以立即播放音效粒子
+
+  为什么用粘液球作为消耗品？
+    - 粘液球具有粘性，符合"粘合"的意象
+    - 不是贵重物品，容易获取
+    - 创造模式不消耗（instabuild 检测）
+
+  客户端-服务端同步策略:
+    1. 客户端先检测条件是否满足，满足则 return true（但不执行逻辑）
+    2. 服务端执行实际的物品消耗、组件设置、音效粒子
+    3. 客户端收到 SET_ITEM_SLOT 同步包自动更新
+
+  已有组件检查:
+    - 如果胸甲已有组件且耐久 > 0，拒绝安装并提示
+    - 允许耐久为 0 时的覆盖安装（相当于"替换"已损坏的组件）
+
+5.3 拆卸处理器 (ElytraDetachHandler.java)
+  文件: src/main/java/net/ec/elytracomponent/handler/ElytraDetachHandler.java
+
+  触发条件：
+    [1] 副手物品有 ELYTRA_COMPONENT 组件
+
+  为什么用副手而不是主手？
+    - 避免与安装逻辑冲突（安装需要主手拿鞘翅）
+    - 副手操作符合"将胸甲放在副手，另一只手操作"的直觉
+
+  还原流程:
+    1. 从 ItemStack 读取 ElytraComponent
+    2. 通过 BuiltInRegistries.ITEM.get(originalElytraId) 获取物品类型
+    3. 创建新 ItemStack
+    4. applyComponents(originalElytraComponents) 还原所有数据
+    5. 按比例换算耐久
+    6. 组件优先级处理：如果物品不存在（模组卸载），返还空气
+
+  耐久比例换算:
+    float ratio = (float) component.currentDurability() / component.maxDurability();
+    int damage = maxDamage - Math.round(maxDamage * ratio);
+  保证安装前后的耐久百分比一致。
+
+5.4 飞行耐久处理器 (ElytraFlightHandler.java)
+  文件: src/main/java/net/ec/elytracomponent/handler/ElytraFlightHandler.java
+
+  监听 EntityTickEvent.Post 而不是 Pre：
+    - Post 在所有其他行为之后触发，更适合消耗耐久这种"后处理"
+
+  性能优化:
+    - tickCount % 10 == 0 每 0.5 秒检查一次，避免每 tick 都计算
+    - 创造/旁观者模式直接跳过
+
+  耐久耗尽处理:
+    - 将 currentDurability 设为 0，但不删除组件
+    - 原版飞行停止由 ItemMixin.canElytraFly 返回 false 控制
+    - 修复时检测 currentDurability 并恢复
+
+5.5 修复处理器 (ElytraRepairHandler.java)
+  文件: src/main/java/net/ec/elytracomponent/handler/ElytraRepairHandler.java
+
+  固定修复量 REPAIR_AMOUNT = 108：
+    - 原版鞘翅耐久 432，幻翼膜在铁砧上每张修复 108 点（1/4）
+    - 这里保持一致，每张幻翼膜修复 108 点组件耐久
+    - 用简单加法而非原版铁砧修复机制（因为组件不能放进铁砧）
+
+  三个监听方法（RightClickItem / EntityInteract / RightClickBlock）：
+    - 复制了三份几乎相同的逻辑，而不是抽取公共方法
+    - 原因是三个事件的取消处理方式不同（setCancellationResult 差异）
+    - 可优化点：抽取公共检测逻辑，减少重复代码
+
+  满耐久提示:
+    - 只在客户端提示（level.isClientSide），避免服务端重复发送
+
+5.6 Tooltip 处理器 (ElytraTooltipHandler.java)
+  文件: src/main/java/net/ec/elytracomponent/handler/ElytraTooltipHandler.java
+
+  客户端专用（value = Dist.CLIENT）：
+    - ItemTooltipEvent 只在客户端触发
+
+  显示信息:
+    1. 已安装标识（本地化文本）
+    2. 当前耐久 / 最大耐久
+    3. 来源模组命名空间
+
+
+================================================================================
+六、Mixin 层：Item 混入实现飞行能力
+================================================================================
+
+6.1 为什么需要 Mixin
+  Minecraft 的鞘翅飞行由 ElytraItem 类的 isElytraFly 和 elytraFlightTick 控制。
+  要让"不是 ElytraItem 的胸甲"也能飞行，需要修改 Item 基类的行为。
+
+6.2 实现方式 (ItemMixin.java)
+  文件: src/main/java/net/ec/elytracomponent/mixin/ItemMixin.java
+
+  使用 NeoForge 的 IItemExtension 接口（优于直接 @Overwrite）：
+    @Mixin(Item.class)
+    public abstract class ItemMixin implements IItemExtension {
+        // 实现自定义接口方法，不破坏原代码
+    }
+
+  canElytraFly():
+    - 从 ItemStack 读取 ELYTRA_COMPONENT 组件
+    - 如果组件存在且 currentDurability > 0，返回 true
+    - 否则返回 false（让原生鞘翅自己处理）
+
+  elytraFlightTick():
+    - 读取组件并返回 true 以维持飞行
+    - 不在此处消耗耐久（由 ElytraFlightHandler 统一处理）
+    - 职责分离：Mixin 只负责"能不能飞"，Handler 负责"消耗耐久"
+
+  为什么不在 canElytraFly 中消耗耐久？
+    - 这个接口被多个地方调用，如果每次调用都消耗耐久会导致消耗过快
+    - 统一在 EntityTickEvent.Post 中处理更可控
+
+
+================================================================================
+七、渲染层：自定义鞘翅纹理渲染
+================================================================================
+
+7.1 设计思路
+  当胸甲安装了组件后，需要在玩家背后渲染对应的鞘翅模型和纹理。
+  通过继承 ElytraLayer 并重写 shouldRender() 和 getElytraTexture() 实现。
+
+7.2 自定义渲染层 (ComponentElytraLayer.java)
+  文件: src/main/java/net/ec/elytracomponent/client/ComponentElytraLayer.java
+
+  shouldRender() 逻辑:
+    1. 如果胸甲有 ELYTRA_COMPONENT → 渲染
+    2. 否则回到父类逻辑（原版鞘翅渲染）
+
+  getElytraTexture() 纹理选择策略（4 级回退）:
+    Level 1: textureOverride（组件中指定的纹理）→ 精确控制
+    Level 2: 自动推算（namespace:textures/item/path.png）→ 智能适配
+    Level 3: 玩家皮肤的 Elytra 纹理 → 自定义皮肤兼容
+    Level 4: 默认纹理 (textures/entity/elytra.png) → 兜底
+
+  自动推算示例:
+    elytraItem = "twilightforest:fiery_elytra"
+    → 推算 "twilightforest:textures/item/fiery_elytra.png"
+  这个机制使得大多数鞘翅不需要在 JSON 中显式配置纹理路径。
+
+7.3 渲染注册 (ClientModEvents.java)
+  文件: src/main/java/net/ec/elytracomponent/client/ClientModEvents.java
+
+  监听 EntityRenderersEvent.AddLayers 事件：
+    - 为两种玩家模型（WIDE / SLIM）都添加渲染层
+    - 为盔甲架也添加渲染层（支持展示架展示）
+
+  为什么不使用 Mixin 注入渲染层？
+    - AddLayers 事件是 NeoForge 提供的标准 API，更安全
+    - Mixin 应该只作为兜底方案
+
+
+================================================================================
+八、命令层：调试与运维命令
+================================================================================
+
+8.1 命令系统 (ElytraComponentCommand.java)
+  文件: src/main/java/net/ec/elytracomponent/command/ElytraComponentCommand.java
+
+  前缀: /ecs (Elytra Component Short)
+  权限: OP 等级 2 (hasPermission(2))
+
+  命令列表:
+    attach <elytra_id> [targets]    → 强制安装鞘翅到目标胸甲
+    detach [targets]                → 强制从目标胸甲拆卸
+    info [targets]                  → 查看组件详细信息
+    durability <amount> [targets]   → 设置耐久值（用于测试）
+    give <component_id> [targets]   → 给予注册组件的测试物品
+    list                            → 列出所有注册组件
+    reload                          → 提示执行 /reload
+
+  设计特点:
+    - 使用 SuggestionProvider 提供自动补全（从注册中心动态获取）
+    - 复用 ElytraComponentAPI，命令逻辑与玩家操作逻辑一致
+    - 所有修改操作都遍历 targets 参数，支持 @a / @e 等选择器
+    - info 命令使用 § 颜色代码格式化输出（游戏内彩色显示）
+
+  与 Minecraft 原版 /reload 的关系:
+    - /ecs reload 只是提示用户使用 /reload
+    - 真正的数据包重载由原版 /reload 触发 AddReloadListenerEvent
+    - ElytraComponentReloadListener.apply() 在 /reload 时自动被调用
+
+
+================================================================================
+九、兼容层：JEI 集成
+================================================================================
+
+9.1 JEI 信息显示 (ElytraComponentJeiPlugin.java)
+  文件: src/main/java/net/ec/elytracomponent/compat/jei/ElytraComponentJeiPlugin.java
+
+  实现 IModPlugin 接口，通过 @JeiPlugin 注解注册。
+
+  核心功能:
+    - 获取所有注册的鞘翅物品
+    - 使用 registration.addItemStackInfo() 注册信息显示
+    - 在 JEI 中搜索鞘翅物品时，点击"i"信息标签页可以看到组件详情
+
+  显示内容（针对每个注册组件）:
+    - 组件 ID
+    - 来源物品 ID
+    - 耐久信息（base x multiplier, max）
+    - 纹理路径
+    - 标签
+    - 依赖模组
+
+  设计要点:
+    - 使用 addItemStackInfo(List<ItemStack>, ...) 自动处理轮播
+      （同一个信息页面对应多个物品时自动切换）
+    - 空注册列表时优雅跳过，不报错
+    - 使用本地化文本组件（Component.translatable）而非硬编码字符串
+
+
+================================================================================
+十、API 层：对外暴露的公共接口
+================================================================================
+
+10.1 公共 API (ElytraComponentAPI.java)
+  文件: src/main/java/net/ec/elytracomponent/api/ElytraComponentAPI.java
+
+  所有方法都是 static 的，无需实例化 API 类。
+
+  对外方法:
+    register(String componentId, ElytraComponentDefinition def)
+        → 模组开发者调用，代码注册组件定义
+
+    isRegisteredElytra(ItemStack stack)
+        → 检查物品是否为已注册的鞘翅源
+
+    getComponent(ItemStack chestplate)
+        → 获取胸甲上的 ElytraComponent
+
+    hasComponent(ItemStack chestplate)
+        → 检查胸甲是否有组件
+
+    createComponent(ItemStack elytraStack, ElytraComponentDefinition def)
+        → 从鞘翅和定义创建组件实例
+
+    setComponent(ItemStack chestplate, ElytraComponent component)
+        → 设置组件到胸甲（同时设置 CAN_ELYTRA_FLY 标记）
+
+    removeComponent(ItemStack chestplate)
+        → 移除胸甲上的组件
+
+    restoreElytra(ElytraComponent component)
+        → 从组件数据还原鞘翅物品
+
+  设计原则:
+    - API 层不直接访问 Map/列表，通过委托给 ElytraComponentReloadListener 实现
+    - 返回 ItemStack.EMPTY 而非 null 作为"无效"表示（避免空指针）
+    - 每个方法职责单一，方便其他模组调用
+
+
+================================================================================
+十一、各模块协作流程
+================================================================================
+
+11.1 安装流程
+  玩家手持(鞘翅 + 粘液球)右键
+  ↓
+  ElytraAttachHandler.tryAttach()
+    ├─ 检查条件（主手有注册鞘翅、副手粘液球、有胸甲）
+    ├─ 检查已有组件（有且耐久>0则拒绝）
+    ├─ ElytraComponentReloadListener.findByItem() 获取定义
+    ├─ ElytraComponentAPI.createComponent() 创建组件
+    │   ├─ def.durability().calculateDurability() 计算耐久
+    │   ├─ 获取纹理覆盖
+    │   └─ new ElytraComponent(...)
+    ├─ ElytraComponentAPI.setComponent() 设置到胸甲
+    │   ├─ chestplate.set(ELYTRA_COMPONENT, component)
+    │   └─ chestplate.set(CAN_ELYTRA_FLY, true)
+    ├─ 消耗物品
+    └─ 播放音效粒子
+
+11.2 飞行流程（每 tick）
+  Minecraft 检测是否可飞行
+  ↓
+  ItemMixin.canElytraFly()
+    ├─ 检查 ELYTRA_COMPONENT 组件是否存在且耐久 > 0
+    └─ 返回 true/false
+  ↓
+  玩家按下空格开始滑翔
+  ↓
+  ElytraFlightHandler.onLivingTick() (每 10 tick)
+    ├─ 检查是否在飞行中（isFallFlying）
+    ├─ 消耗 1 点耐久
+    ├─ 如果耐久耗尽 → currentDurability = 0
+    └─ 下次 canElytraFly 返回 false → 飞行停止
+
+11.3 拆卸流程
+  将带组件的胸甲放副手，右键
+  ↓
+  ElytraDetachHandler.onRightClickItem()
+    ├─ 检查副手物品是否有组件
+    ├─ ElytraComponentAPI.restoreElytra()
+    │   ├─ BuiltInRegistries.ITEM.get(originalElytraId) 获取原物品
+    │   ├─ new ItemStack(item) + applyComponents(originalData)
+    │   └─ 按比例还原耐久
+    ├─ ElytraComponentAPI.removeComponent()
+    │   ├─ chestplate.remove(ELYTRA_COMPONENT)
+    │   └─ chestplate.remove(CAN_ELYTRA_FLY)
+    └─ 返还物品到背包/掉落
+
+11.4 渲染流程（每帧）
+  Minecraft 渲染玩家实体
+  ↓
+  ComponentElytraLayer.render()
+    ├─ shouldRender() → 检查胸甲是否有组件
+    ├─ getElytraTexture()
+    │   ├─ 有 textureOverride → 使用指定纹理
+    │   ├─ 无 override → 自动推算
+    │   └─ 推算失败 → 默认纹理
+    └─ 渲染 ElytraModel + 纹理
+
+
+================================================================================
+十二、关键设计模式与经验总结
+================================================================================
+
+12.1 使用的设计模式
+
+  [1] 策略模式（Strategy）
+    - 不同的 Handler 类各自实现一种交互策略（安装、拆卸、修复）
+    - 通过依赖倒置统一监听 PlayerInteractEvent
+
+  [2] 注册表模式（Registry）
+    - ElytraComponentReloadListener 作为全局注册表
+    - 提供注册、查询、索引重建功能
+    - 支持双重注册源：代码直接注册 + JSON 数据驱动
+
+  [3] 数据驱动模式（Data-Driven）
+    - 通过 JSON Schema 定义组件配置
+    - SimpleJsonResourceReloadListener 自动加载
+    - 支持 /reload 热重载
+
+  [4] 外观模式（Facade）
+    - ElytraComponentAPI 作为统一入口
+    - 隐藏底层实现细节
+    - 提供简洁的静态方法
+
+  [5] 不可变对象模式（Immutable）
+    - ElytraComponent 和 ElytraComponentDefinition 使用 Record
+    - 所有"修改"通过创建新实例实现
+    - 线程安全，适合并行场景
+
+  [6] 分层架构（Layered Architecture）
+    - 数据层 → 逻辑层 → 渲染层 → API层
+    - 层间通过接口/委托通信，降低耦合
+
+12.2 关键经验
+
+  [1] DataComponent 的选择
+    - NeoForge 1.21 中 DataComponent 是推荐的物品数据存储方式
+    - 相比 Capability：更简单、内置序列化/网络同步、类型安全
+    - 需要先注册 DataComponentType，比 NBT 的灵活性低但安全性高
+
+  [2] 客户端-服务端同步策略
+    - 客户端先行检查（快速返回），服务端执行实际修改
+    - 物品修改后调用 player.setItemSlot() 触发同步
+    - 音效粒子由服务端广播到客户端
+    - 避免使用自定义网络包（减少复杂度）
+
+  [3] 异常安全设计
+    - JSON 解析中每个定义独立 try-catch，一个损坏不影响其他
+    - 物品不存在时安全降级（返回空气/空集合）
+    - 日志分级：WARN（可恢复问题）、ERROR（非致命异常）
+
+  [4] 可扩展性设计
+    - extraData 字段作为扩展兜底
+    - tags 系统供未来功能使用
+    - CompatibilityInfo 预留模组依赖检查
+    - 代码注册优先级高于 JSON，模组开发者可以覆盖数据包配置
+
+  [5] 性能考虑
+    - tickCount % 10 减少耐久消耗检查频率
+    - 反向索引 ITEM_INDEX 实现 O(1) 查询
+    - ClientModEvents 仅在客户端触发
+    - Render 层的纹理选择策略避免了不必要的资源加载
+
+12.3 可能的改进方向
+
+  [1] Curios API 集成
+    - 已有 CuriosApiHelper 但未完全集成
+    - 可让玩家在 Curios 槽位中携带鞘翅组件
+
+  [2] 锻造配方集成
+    - 添加 Smithing 配方支持，允许在锻造台上安装/升级组件
+    - 配合数据包自定义 M 渲染
+
+  [3] 组件升级系统
+    - 不同品质的组件（普通/稀有/史诗）
+    - 组件可以镶嵌附魔书
+
+  [4] 冲突检测
+    - CompatibilityInfo.incompatibleWith 目前是信息性字段
+    - 可实现运行时冲突检测：不能同时安装两个不兼容的组件
+
+  [5] 服务器同步优化
+    - 使用自定义网络包推送注册表到客户端
+    - 避免客户端单独从数据包加载（可能不一致）
+
+================================================================================
+EOF - 鞘翅组件模组开发笔记
+================================================================================

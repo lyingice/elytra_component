@@ -1,0 +1,18 @@
+{
+  "elytra_components": [
+    {
+      "component_id": "vanilla_elytra",
+      "elytra_item": "minecraft:elytra",
+      "texture": {
+        "elytra_layer": "minecraft:textures/entity/elytra.png"
+      },
+      "durability": {
+        "base": 432,
+        "multiplier": 1.0
+      },
+      "render": {
+        "tint_color": "#FFFFFF"
+      }
+    }
+  ]
+}
