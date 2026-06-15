@@ -38,7 +38,6 @@ public class ElytraFlightHandler {
 
         ElytraComponent component = chestStack.get(ModComponents.ELYTRA_COMPONENT.get());
         if (component == null) return;
-
         // 每 10 tick 消耗 1 点耐久
         if (living.tickCount % 10 == 0) {
             int newDurability = component.currentDurability() - 1;
@@ -52,7 +51,10 @@ public class ElytraFlightHandler {
                         0,
                         component.maxDurability(),
                         component.textureOverride(),
-                        component.extraData()
+                        component.extraData(),
+                        component.originalChestAttributes(),
+                        component.abilityConfig(),
+                        component.particleConfig()
                 );
                 chestStack.set(ModComponents.ELYTRA_COMPONENT.get(), brokenComponent);
             } else {
@@ -64,7 +66,10 @@ public class ElytraFlightHandler {
                         newDurability,
                         component.maxDurability(),
                         component.textureOverride(),
-                        component.extraData()
+                        component.extraData(),
+                        component.originalChestAttributes(),
+                        component.abilityConfig(),
+                        component.particleConfig()
                 );
                 chestStack.set(ModComponents.ELYTRA_COMPONENT.get(), updatedComponent);
 

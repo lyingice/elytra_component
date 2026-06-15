@@ -12,20 +12,11 @@ import net.minecraft.world.item.Items;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.registration.IRecipeRegistration;
+import net.neoforged.fml.ModList;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * JEI 兼容插件。
- *
- * 在 JEI 的信息显示中，展示所有数据包配置的鞘翅组件列表。
- * 玩家可以在 JEI 中搜索 "Elytra Component" 或对应鞘翅物品，
- * 查看哪些鞘翅可以安装到胸甲上，以及各自的耐久信息。
- *
- * 使用 addItemStackInfo(List<ItemStack>, Component...) 
- * 自动处理多物品轮播显示。
- */
 @JeiPlugin
 public class ElytraComponentJeiPlugin implements IModPlugin {
 
@@ -39,7 +30,6 @@ public class ElytraComponentJeiPlugin implements IModPlugin {
 
     @Override
     public void registerRecipes(IRecipeRegistration registration) {
-        // 获取所有已注册的鞘翅组件定义
         List<ElytraComponentDefinition> allDefs = new ArrayList<>(ElytraComponentReloadListener.getAll());
 
         if (allDefs.isEmpty()) {
@@ -47,37 +37,43 @@ public class ElytraComponentJeiPlugin implements IModPlugin {
             return;
         }
 
-        // 收集所有鞘翅物品
+        // 过滤：只显示已加载模组的物品 + 物品实际存在
         List<ItemStack> elytraItems = new ArrayList<>();
+        List<ElytraComponentDefinition> validDefs = new ArrayList<>();
+
         for (ElytraComponentDefinition def : allDefs) {
-            var item = BuiltInRegistries.ITEM.get(def.elytraItem());
-            if (item != Items.AIR) {
-                elytraItems.add(new ItemStack(item));
+            // 检查 required_mods
+            boolean modsLoaded = true;
+            for (String modId : def.compatibility().requiredMods()) {
+                if (!ModList.get().isLoaded(modId)) {
+                    modsLoaded = false;
+                    break;
+                }
             }
+            if (!modsLoaded) continue;
+
+            // 检查物品是否在注册表中存在
+            var item = BuiltInRegistries.ITEM.get(def.elytraItem());
+            if (item == Items.AIR) continue;
+
+            elytraItems.add(new ItemStack(item));
+            validDefs.add(def);
         }
 
         if (elytraItems.isEmpty()) {
-            ElytraComponentMod.LOGGER.warn("All registered elytra components have invalid items");
+            ElytraComponentMod.LOGGER.info("No valid elytra components for currently loaded mods");
             return;
         }
 
-        // 构建描述文本
-        Component description = buildDescription(allDefs);
+        Component description = buildDescription(validDefs);
         Component shortTitle = Component.translatable(
-                "jei.elytra_component.info.title",
-                allDefs.size()
-        );
+                "jei.elytra_component.info.title", validDefs.size());
 
-        // 注册信息 — 使用 addItemStackInfo 自动处理轮播
         registration.addItemStackInfo(elytraItems, shortTitle, description);
 
-        ElytraComponentMod.LOGGER.info("Registered {} elytra components in JEI info display", allDefs.size());
+        ElytraComponentMod.LOGGER.info("Registered {} elytra components in JEI info display", validDefs.size());
     }
 
-    /**
-     * 构建完整的鞘翅组件描述信息。
-     * 包含每个注册鞘翅的组件ID、耐久、标签等。
-     */
     private static Component buildDescription(List<ElytraComponentDefinition> defs) {
         Component root = Component.literal("");
 
@@ -92,16 +88,13 @@ public class ElytraComponentJeiPlugin implements IModPlugin {
                 root = root.copy().append(Component.literal("\n"));
             }
 
-            // 组件ID
             root = root.copy().append(Component.literal("■ ")
                     .withStyle(ChatFormatting.YELLOW));
             root = root.copy().append(Component.literal(def.componentId())
                     .withStyle(ChatFormatting.WHITE));
 
-            // 来源物品ID
             root = root.copy().append(Component.literal("\n  §7物品: §f" + def.elytraItem()));
 
-            // 耐久信息
             StringBuilder durabilitySb = new StringBuilder();
             durabilitySb.append("\n  §7耐久: §e").append(def.durability().base());
             if (def.durability().multiplier() != 1.0f) {
@@ -112,17 +105,14 @@ public class ElytraComponentJeiPlugin implements IModPlugin {
             }
             root = root.copy().append(Component.literal(durabilitySb.toString()));
 
-            // 纹理信息
             if (def.texture() != null && def.texture().elytraLayer() != null) {
                 root = root.copy().append(Component.literal("\n  §7纹理: §f" + def.texture().elytraLayer()));
             }
 
-            // 标签
             if (!def.tags().isEmpty()) {
                 root = root.copy().append(Component.literal("\n  §7标签: §b" + String.join("§7, §b", def.tags())));
             }
 
-            // 依赖模组
             if (!def.compatibility().requiredMods().isEmpty()) {
                 root = root.copy().append(Component.literal("\n  §7依赖: §d" + String.join("§7, §d", def.compatibility().requiredMods())));
             }

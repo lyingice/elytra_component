@@ -16,31 +16,27 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 /**
  * 客户端模组事件：注册自定义渲染层。
  */
-@EventBusSubscriber(modid = ElytraComponentMod.MODID,value = Dist.CLIENT)
+@EventBusSubscriber(modid = ElytraComponentMod.MODID, value = Dist.CLIENT)
 public class ClientModEvents {
 
-    /**
-     * 注册鞘翅渲染层到所有玩家实体渲染器
-     */
     @SubscribeEvent
     public static void onAddLayers(EntityRenderersEvent.AddLayers event) {
-        // 为默认（宽）玩家模型添加组件鞘翅层
+        // 初始化纹饰纹理
+        ElytraTrimTextures.init();
+
+        // 玩家 - 宽模型
         PlayerRenderer defaultSkin = event.getSkin(PlayerSkin.Model.WIDE);
         if (defaultSkin != null) {
-            defaultSkin.addLayer(new ComponentElytraLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>>(
-                    defaultSkin,
-                    event.getEntityModels()
-            ));
+            defaultSkin.addLayer(new ComponentElytraLayer<>(defaultSkin, event.getEntityModels()));
         }
 
-        // 为纤细模型（slim arms）添加
+        // 玩家 - 纤细模型
         PlayerRenderer slimSkin = event.getSkin(PlayerSkin.Model.SLIM);
         if (slimSkin != null) {
-            slimSkin.addLayer(new ComponentElytraLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>>(
-                    slimSkin,
-                    event.getEntityModels()
-            ));
+            slimSkin.addLayer(new ComponentElytraLayer<>(slimSkin, event.getEntityModels()));
         }
+
+        // 盔甲架
         ArmorStandRenderer armorStandRenderer = event.getRenderer(EntityType.ARMOR_STAND);
         if (armorStandRenderer != null) {
             armorStandRenderer.addLayer(new ComponentElytraLayer<>(armorStandRenderer, event.getEntityModels()));

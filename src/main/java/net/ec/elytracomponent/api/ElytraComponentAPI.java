@@ -5,6 +5,7 @@ import net.ec.elytracomponent.component.ModComponents;
 import net.ec.elytracomponent.data.ElytraComponentDefinition;
 import net.ec.elytracomponent.data.ElytraComponentReloadListener;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -50,18 +51,18 @@ public class ElytraComponentAPI {
     }
 
     /**
-     * 从鞘翅物品和定义创建组件实例（在锻造配方中使用）
+     * 从鞘翅物品和定义创建组件实例
      *
-     * @param elytraStack 鞘翅物品（包含耐久、附魔等数据）
-     * @param def         组件定义
-     * @return 组件实例
+     * @param elytraStack       鞘翅物品
+     * @param def               组件定义
+     * @param originalChestAttrs 原始胸甲属性（安装时保存，拆卸时恢复），可为 null
      */
-    public static ElytraComponent createComponent(ItemStack elytraStack, ElytraComponentDefinition def) {
+    public static ElytraComponent createComponent(ItemStack elytraStack, ElytraComponentDefinition def,
+                                                  @Nullable CompoundTag originalChestAttrs) {
         int maxDurability = def.durability().calculateDurability(elytraStack.getMaxDamage());
         int currentDurability = maxDurability - elytraStack.getDamageValue();
         if (currentDurability < 0) currentDurability = 0;
 
-        // 纹理路径：优先使用定义中指定的，否则从原物品自动推算
         ResourceLocation textureOverride = null;
         if (def.texture() != null && def.texture().elytraLayer() != null) {
             textureOverride = def.texture().elytraLayer();
@@ -74,8 +75,16 @@ public class ElytraComponentAPI {
                 currentDurability,
                 maxDurability,
                 textureOverride,
-                null
+                null,                    // extraData
+                originalChestAttrs,      // 原始胸甲属性
+                null,                    // abilityConfig（未来扩展）
+                null                     // particleConfig（未来扩展）
         );
+    }
+
+    // 保留旧方法兼容
+    public static ElytraComponent createComponent(ItemStack elytraStack, ElytraComponentDefinition def) {
+        return createComponent(elytraStack, def, null);
     }
 
     /**

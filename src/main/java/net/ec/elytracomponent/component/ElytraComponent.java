@@ -8,6 +8,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
 
 import javax.annotation.Nullable;
 import java.util.Optional;
@@ -17,25 +18,31 @@ import java.util.Optional;
  * 封装了原鞘翅的所有数据，支持序列化、网络同步。
  */
 public record ElytraComponent(
-        // 来源模组ID，如 "twilightforest"
+        // 来源模组ID
         ResourceLocation sourceNamespace,
         // 原鞘翅物品ID
         ResourceLocation originalElytraId,
         // 原鞘翅的所有 DataComponent（用于拆卸时100%还原）
         DataComponentMap originalElytraComponents,
-        // 当前耐久（剩余飞行耐久）
+        // 当前耐久
         int currentDurability,
         // 最大耐久
         int maxDurability,
         // 可选：覆盖纹理路径
         @Nullable ResourceLocation textureOverride,
         // 可选：额外 NBT 数据（供未来扩展）
-        @Nullable CompoundTag extraData
+        @Nullable CompoundTag extraData,
+
+        // === 属性修饰符（安装时合并到胸甲，拆卸时恢复） ===
+        @Nullable CompoundTag originalChestAttributes,
+
+        // === 未来扩展预留 ===
+        // 特殊能力配置
+        @Nullable CompoundTag abilityConfig,
+        // 自定义粒子效果
+        @Nullable CompoundTag particleConfig
 ) {
 
-    /**
-     * Codec 用于持久化存储（物品保存到箱子/末影箱/切换维度时）
-     */
     public static final Codec<ElytraComponent> CODEC = RecordCodecBuilder.create(instance ->
             instance.group(
                     ResourceLocation.CODEC
@@ -58,26 +65,31 @@ public record ElytraComponent(
                             .forGetter(c -> Optional.ofNullable(c.textureOverride)),
                     CompoundTag.CODEC
                             .optionalFieldOf("extra_data")
-                            .forGetter(c -> Optional.ofNullable(c.extraData))
+                            .forGetter(c -> Optional.ofNullable(c.extraData)),
+                    CompoundTag.CODEC
+                            .optionalFieldOf("original_chest_attributes")
+                            .forGetter(c -> Optional.ofNullable(c.originalChestAttributes)),
+                    CompoundTag.CODEC
+                            .optionalFieldOf("ability_config")
+                            .forGetter(c -> Optional.ofNullable(c.abilityConfig)),
+                    CompoundTag.CODEC
+                            .optionalFieldOf("particle_config")
+                            .forGetter(c -> Optional.ofNullable(c.particleConfig))
             ).apply(instance, (sourceNamespace, originalElytraId, originalElytraComponents,
                                currentDurability, maxDurability,
-                               textureOverrideOpt, extraDataOpt) ->
+                               textureOverrideOpt, extraDataOpt,
+                               originalChestAttributesOpt, abilityConfigOpt, particleConfigOpt) ->
                     new ElytraComponent(
-                            sourceNamespace,
-                            originalElytraId,
-                            originalElytraComponents,
-                            currentDurability,
-                            maxDurability,
-                            textureOverrideOpt.orElse(null),
-                            extraDataOpt.orElse(null)
+                            sourceNamespace, originalElytraId, originalElytraComponents,
+                            currentDurability, maxDurability,
+                            textureOverrideOpt.orElse(null), extraDataOpt.orElse(null),
+                            originalChestAttributesOpt.orElse(null),
+                            abilityConfigOpt.orElse(null),
+                            particleConfigOpt.orElse(null)
                     )
             )
     );
 
-    /**
-     * StreamCodec 用于网络同步（服务端 → 客户端）
-     * 使用手动编码避免 composite() 字段数量限制
-     */
     public static final StreamCodec<ByteBuf, ElytraComponent> STREAM_CODEC = new StreamCodec<>() {
         @Override
         public ElytraComponent decode(ByteBuf buf) {
@@ -88,15 +100,17 @@ public record ElytraComponent(
             int maxDurability = ByteBufCodecs.VAR_INT.decode(buf);
             Optional<ResourceLocation> textureOverrideOpt = ByteBufCodecs.optional(ResourceLocation.STREAM_CODEC).decode(buf);
             Optional<CompoundTag> extraDataOpt = ByteBufCodecs.optional(ByteBufCodecs.fromCodec(CompoundTag.CODEC)).decode(buf);
+            Optional<CompoundTag> originalChestAttributesOpt = ByteBufCodecs.optional(ByteBufCodecs.fromCodec(CompoundTag.CODEC)).decode(buf);
+            Optional<CompoundTag> abilityConfigOpt = ByteBufCodecs.optional(ByteBufCodecs.fromCodec(CompoundTag.CODEC)).decode(buf);
+            Optional<CompoundTag> particleConfigOpt = ByteBufCodecs.optional(ByteBufCodecs.fromCodec(CompoundTag.CODEC)).decode(buf);
 
             return new ElytraComponent(
-                    sourceNamespace,
-                    originalElytraId,
-                    originalElytraComponents,
-                    currentDurability,
-                    maxDurability,
-                    textureOverrideOpt.orElse(null),
-                    extraDataOpt.orElse(null)
+                    sourceNamespace, originalElytraId, originalElytraComponents,
+                    currentDurability, maxDurability,
+                    textureOverrideOpt.orElse(null), extraDataOpt.orElse(null),
+                    originalChestAttributesOpt.orElse(null),
+                    abilityConfigOpt.orElse(null),
+                    particleConfigOpt.orElse(null)
             );
         }
 
@@ -109,6 +123,9 @@ public record ElytraComponent(
             ByteBufCodecs.VAR_INT.encode(buf, c.maxDurability());
             ByteBufCodecs.optional(ResourceLocation.STREAM_CODEC).encode(buf, Optional.ofNullable(c.textureOverride()));
             ByteBufCodecs.optional(ByteBufCodecs.fromCodec(CompoundTag.CODEC)).encode(buf, Optional.ofNullable(c.extraData()));
+            ByteBufCodecs.optional(ByteBufCodecs.fromCodec(CompoundTag.CODEC)).encode(buf, Optional.ofNullable(c.originalChestAttributes()));
+            ByteBufCodecs.optional(ByteBufCodecs.fromCodec(CompoundTag.CODEC)).encode(buf, Optional.ofNullable(c.abilityConfig()));
+            ByteBufCodecs.optional(ByteBufCodecs.fromCodec(CompoundTag.CODEC)).encode(buf, Optional.ofNullable(c.particleConfig()));
         }
     };
 }

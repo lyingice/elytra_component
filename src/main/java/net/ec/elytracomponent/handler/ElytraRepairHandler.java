@@ -157,7 +157,10 @@ public class ElytraRepairHandler {
                 newDurability,
                 component.maxDurability(),
                 component.textureOverride(),
-                component.extraData()
+                component.extraData(),
+                component.originalChestAttributes(),
+                component.abilityConfig(),
+                component.particleConfig()
         );
 
         // 设置修复后的组件

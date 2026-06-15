@@ -282,7 +282,10 @@ public class ElytraComponentCommand {
                     newDurability,
                     old.maxDurability(),
                     old.textureOverride(),
-                    old.extraData()
+                    old.extraData(),
+                    old.originalChestAttributes(),   // 保留
+                    old.abilityConfig(),              // 保留
+                    old.particleConfig()              // 保留
             );
             chestplate.set(ModComponents.ELYTRA_COMPONENT.get(), updated);
             player.setItemSlot(EquipmentSlot.CHEST, chestplate);

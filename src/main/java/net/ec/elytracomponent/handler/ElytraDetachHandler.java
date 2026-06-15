@@ -4,18 +4,29 @@ import net.ec.elytracomponent.ElytraComponentMod;
 import net.ec.elytracomponent.api.ElytraComponentAPI;
 import net.ec.elytracomponent.component.ElytraComponent;
 import net.ec.elytracomponent.component.ModComponents;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.EquipmentSlotGroup;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.minecraft.core.registries.BuiltInRegistries;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @EventBusSubscriber(modid = ElytraComponentMod.MODID)
 public class ElytraDetachHandler {
@@ -25,25 +36,27 @@ public class ElytraDetachHandler {
         Player player = event.getEntity();
         Level level = event.getLevel();
 
-        // 检测副手是否有带组件的物品
         ItemStack offHand = player.getOffhandItem();
         if (!offHand.has(ModComponents.ELYTRA_COMPONENT.get())) return;
 
         if (level.isClientSide) {
             event.setCancellationResult(InteractionResult.SUCCESS);
-            event.setCanceled(true);  // 关键：取消原版使用逻辑
+            event.setCanceled(true);
             return;
         }
 
         detachElytra(player, level, offHand, InteractionHand.OFF_HAND);
         event.setCancellationResult(InteractionResult.SUCCESS);
-        event.setCanceled(true);  // 关键：取消原版使用逻辑
+        event.setCanceled(true);
     }
 
     private static void detachElytra(Player player, Level level,
                                      ItemStack sourceStack, InteractionHand hand) {
         ElytraComponent component = sourceStack.get(ModComponents.ELYTRA_COMPONENT.get());
         if (component == null) return;
+
+        // ========== 恢复原始属性 ==========
+        restoreOriginalAttributes(sourceStack, component);
 
         ItemStack restoredElytra = ElytraComponentAPI.restoreElytra(component);
         net.minecraft.network.chat.Component elytraName = restoredElytra.getHoverName();
@@ -71,5 +84,42 @@ public class ElytraDetachHandler {
         player.displayClientMessage(
                 net.minecraft.network.chat.Component.translatable(
                         "message.elytra_component.elytra_detached", elytraName), true);
+    }
+
+    /**
+     * 恢复胸甲的原始属性修饰符
+     */
+    private static void restoreOriginalAttributes(ItemStack chestplate, ElytraComponent component) {
+        CompoundTag origAttrs = component.originalChestAttributes();
+        if (origAttrs != null && origAttrs.contains("size")) {
+            int size = origAttrs.getInt("size");
+            List<ItemAttributeModifiers.Entry> entries = new ArrayList<>();
+            for (int i = 0; i < size; i++) {
+                CompoundTag entryTag = origAttrs.getCompound("modifier_" + i);
+                if (!entryTag.isEmpty()) {
+                    var attr = BuiltInRegistries.ATTRIBUTE.get(
+                            ResourceLocation.parse(entryTag.getString("attribute")));
+                    if (attr != null) {
+                        AttributeModifier.Operation op = AttributeModifier.Operation.valueOf(
+                                entryTag.getString("operation"));
+                        EquipmentSlot slot = EquipmentSlot.valueOf(
+                                entryTag.getString("slot"));
+                        entries.add(new ItemAttributeModifiers.Entry(
+                                BuiltInRegistries.ATTRIBUTE.wrapAsHolder(attr),
+                                new AttributeModifier(
+                                        ResourceLocation.withDefaultNamespace("elytra_component_restored"),
+                                        entryTag.getDouble("amount"), op),
+                                EquipmentSlotGroup.bySlot(slot)));
+                    }
+                }
+            }
+            if (!entries.isEmpty()) {
+                chestplate.set(DataComponents.ATTRIBUTE_MODIFIERS,
+                        new ItemAttributeModifiers(entries, true));
+            }
+        } else {
+            // 没有原始属性，移除所有
+            chestplate.remove(DataComponents.ATTRIBUTE_MODIFIERS);
+        }
     }
 }
