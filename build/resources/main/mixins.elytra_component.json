@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "package": "net.sc.elytracomponent.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "mixins.elytra_component.refmap.json",
+  "mixins": ["ItemMixin","PlayerMixin"],
+  "client": [],
+  "minVersion": "0.8"
+}

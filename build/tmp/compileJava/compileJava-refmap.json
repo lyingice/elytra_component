@@ -1,0 +1,14 @@
+{
+  "mappings": {
+    "net/sc/elytracomponent/mixin/PlayerMixin": {
+      "tryToStartFallFlying": "Lnet/minecraft/world/entity/player/Player;m_36319_()Z"
+    }
+  },
+  "data": {
+    "searge": {
+      "net/sc/elytracomponent/mixin/PlayerMixin": {
+        "tryToStartFallFlying": "Lnet/minecraft/world/entity/player/Player;m_36319_()Z"
+      }
+    }
+  }
+}

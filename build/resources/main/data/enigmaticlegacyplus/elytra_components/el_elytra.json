@@ -1,0 +1,34 @@
+
+{
+"elytra_components": [
+{
+"component_id": "majestic_elytra",
+"elytra_item": "enigmaticlegacyplus:majestic_elytra",
+"durability": {
+"base": 3476,
+"multiplier": 1.0,
+"max": 3476
+},
+"texture": {
+"elytra_layer": "enigmaticlegacyplus:textures/models/misc/majestic_elytra.png"
+},
+"render": {
+"has_glow": false
+}
+},
+  {
+    "component_id": "chaos_elytra",
+    "elytra_item": "enigmaticlegacyplus:chaos_elytra",
+    "durability": {
+      "base": 3248,
+      "multiplier": 1.0,
+      "max": 3248
+    },
+    "texture": {
+      "elytra_layer": "enigmaticlegacyplus:textures/models/misc/chaos_elytra.png"
+    },
+    "render": {
+      "has_glow": false
+    }
+}
+]}

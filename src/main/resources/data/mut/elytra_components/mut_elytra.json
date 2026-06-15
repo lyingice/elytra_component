@@ -1,0 +1,64 @@
+{
+  "elytra_components": [
+    {
+      "component_id": "iron_elytra",
+      "elytra_item": "mut:iron_elytra",
+      "durability": {
+        "base": 557,
+        "multiplier": 1.0,
+        "max": 557
+      },
+      "texture": {
+        "elytra_layer": "mut:textures/entities/iron_elytra.png"
+      },
+      "render": {
+        "has_glow": false
+      }
+    },
+    {
+      "component_id": "golden_elytra",
+      "elytra_item": "mut:golden_elytra",
+      "durability": {
+        "base": 682,
+        "multiplier": 1.0,
+        "max": 682
+      },
+      "texture": {
+        "elytra_layer": "mut:textures/entities/golden_elytra.png"
+      },
+      "render": {
+        "has_glow": false
+      }
+    },
+    {
+      "component_id": "diamond_elytra",
+      "elytra_item": "mut:diamond_elytra",
+      "durability": {
+        "base": 1213,
+        "multiplier": 1.0,
+        "max": 1213
+      },
+      "texture": {
+        "elytra_layer": "mut:textures/entities/diamond_elytra.png"
+      },
+      "render": {
+        "has_glow": false
+      }
+    },
+    {
+      "component_id": "netherite_elytra",
+      "elytra_item": "mut:netherite_elytra",
+      "durability": {
+        "base": 1448,
+        "multiplier": 1.0,
+        "max": 1448
+      },
+      "texture": {
+        "elytra_layer": "mut:textures/entities/netherite_elytra.png"
+      },
+      "render": {
+        "has_glow": false
+      }
+    }
+  ]
+}

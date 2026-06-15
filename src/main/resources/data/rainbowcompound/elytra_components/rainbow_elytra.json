@@ -1,0 +1,16 @@
+{
+  "elytra_components": [
+    {
+    "component_id": "dynamic_elytra_rainbow",
+    "elytra_item": "rainbowcompound:dynamic_elytra_rainbow",
+    "durability": {
+      "base": 1632,
+      "multiplier": 1.0,
+      "max": 1632
+    },
+    "texture": {
+      "elytra_layer": "rainbowcompound:textures/entity/rainbow_elytra.png"
+     }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "message.elytra_component.elytra_detached": "§eElytra detached: §f%s",
+
+  "tooltip.elytra_component.elytra_installed": "§7Elytra Component Installed",
+  "tooltip.elytra_component.durability": "§7Elytra Durability: §e%s§7/§e%s",
+  "tooltip.elytra_component.source": "§7Source: §f%s",
+
+  "item.elytra_component.elytra_debug": "Elytra Component Debugger",
+  "item.elytra_component.elytra_debug.tooltip": "Right-click to view elytra component info on chestplate",
+
+  "command.elytra_component.error.no_chestplate": "§c%s's chestplate slot is empty",
+  "command.elytra_component.error.no_component": "§c%s's chestplate has no elytra component",
+  "command.elytra_component.error.invalid_elytra": "§cThis item is not a registered elytra component",
+  "command.elytra_component.error.unknown_component": "§cUnknown component ID: %s",
+
+  "command.elytra_component.attach.success": "§aAttached §f%2$s §ato §f%1$s§a's chestplate",
+  "command.elytra_component.detach.success": "§aDetached §f%2$s §afrom §f%1$s§a's chestplate",
+  "command.elytra_component.durability.success": "§aSet §f%1$s§a's component durability to §e%2$s§7/§e%3$s",
+  "command.elytra_component.give.success": "§aGave §f%2$s §ato §f%1$s",
+  "message.elytra_component.elytra_attached": "§aAttached %2$s to %1$s",
+  "message.elytra_component.already_has_component": "§c%1$s already has an elytra component installed",
+
+  "jei.elytra_component.info.title": "Elytra Components (%s)",
+  "jei.elytra_component.info.header": "§6Elytra Components that can be installed on Chestplates (%s)",
+  "jei.elytra_component.info.footer": "§7Hold the Elytra in main hand and a Slime Ball in off hand, then right-click to install",
+  "message.elytra_component.repair_not_needed": "§e%s's durability is already sufficient",
+  "message.elytra_component.repair_success": "§eRepaired %s to %s/%s"
+}

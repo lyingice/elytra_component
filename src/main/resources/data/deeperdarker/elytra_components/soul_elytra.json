@@ -1,0 +1,17 @@
+{
+  "elytra_components": [
+    {
+  "component_id": "soul_elytra",
+  "elytra_item": "deeperdarker:soul_elytra",
+  "durability": {
+    "base": 1500,
+    "multiplier": 1.0,
+    "max": 1500
+  },
+  "texture": {
+    "elytra_layer": "deeperdarker:textures/entity/soul_elytra.png"
+  },
+  "render": {
+    "has_glow": false
+  }
+}]}
