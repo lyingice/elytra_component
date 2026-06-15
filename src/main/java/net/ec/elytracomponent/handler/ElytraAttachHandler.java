@@ -15,11 +15,11 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -84,7 +84,6 @@ public class ElytraAttachHandler {
         ItemAttributeModifiers chestModifiers = chestplate.get(DataComponents.ATTRIBUTE_MODIFIERS);
         if (chestModifiers != null) {
             originalChestAttrs = new CompoundTag();
-            // 将属性序列化到 NBT（用于还原）
             var modifiers = chestModifiers.modifiers();
             originalChestAttrs.putInt("size", modifiers.size());
             for (int i = 0; i < modifiers.size(); i++) {
@@ -105,6 +104,9 @@ public class ElytraAttachHandler {
                     mergeAttributeModifiers(chestModifiers, elytraModifiers));
         }
 
+        // ========== 提取附魔 ==========
+        ItemEnchantments enchantments = mainHand.get(DataComponents.ENCHANTMENTS);
+
         // ========== 创建组件 ==========
         net.minecraft.network.chat.Component chestplateName = chestplate.getHoverName();
         net.minecraft.network.chat.Component elytraName = mainHand.getHoverName();
@@ -113,8 +115,21 @@ public class ElytraAttachHandler {
         ElytraComponentAPI.setComponent(chestplate, component);
         player.setItemSlot(EquipmentSlot.CHEST, chestplate);
 
+        // 消耗鞘翅
         mainHand.shrink(1);
         player.setItemInHand(InteractionHand.MAIN_HAND, mainHand);
+
+        // 返还附魔书
+        if (enchantments != null && !enchantments.isEmpty()) {
+            ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
+            enchantedBook.set(DataComponents.STORED_ENCHANTMENTS, enchantments);
+            if (!player.getInventory().add(enchantedBook)) {
+                player.drop(enchantedBook, false);
+            }
+            player.displayClientMessage(
+                    net.minecraft.network.chat.Component.translatable(
+                            "message.elytra_component.enchants_returned"), true);
+        }
 
         if (!player.getAbilities().instabuild) {
             offHand.shrink(1);
@@ -138,18 +153,12 @@ public class ElytraAttachHandler {
         return true;
     }
 
-    /**
-     * 合并两个 ItemAttributeModifiers，保留胸甲属性，追加鞘翅属性
-     */
     private static ItemAttributeModifiers mergeAttributeModifiers(
             @Nullable ItemAttributeModifiers base,
             ItemAttributeModifiers addition) {
         if (base == null) return addition;
-
         List<ItemAttributeModifiers.Entry> merged = new ArrayList<>(base.modifiers());
-        // 追加鞘翅属性，不覆盖
         merged.addAll(addition.modifiers());
-
         return new ItemAttributeModifiers(merged, true);
     }
 }

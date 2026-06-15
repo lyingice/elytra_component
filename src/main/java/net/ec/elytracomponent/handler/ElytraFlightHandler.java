@@ -47,7 +47,7 @@ public class ElytraFlightHandler {
                 ElytraComponent brokenComponent = new ElytraComponent(
                         component.sourceNamespace(),
                         component.originalElytraId(),
-                        component.originalElytraComponents(),
+                        component.originalElytraTag(),
                         0,
                         component.maxDurability(),
                         component.textureOverride(),
@@ -62,7 +62,7 @@ public class ElytraFlightHandler {
                 ElytraComponent updatedComponent = new ElytraComponent(
                         component.sourceNamespace(),
                         component.originalElytraId(),
-                        component.originalElytraComponents(),
+                        component.originalElytraTag(),
                         newDurability,
                         component.maxDurability(),
                         component.textureOverride(),

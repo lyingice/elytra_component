@@ -24,5 +24,6 @@
   "jei.elytra_component.info.header": "§6可以安装到胸甲的鞘翅组件 (%s)",
   "jei.elytra_component.info.footer": "§7在主手时副手粘液球右键即可安装",
   "message.elytra_component.repair_not_needed": "§e%s 的耐久度已经足够",
-  "message.elytra_component.repair_success": "§e已将 %s 修复为 %s/%s"
+  "message.elytra_component.repair_success": "§e已将 %s 修复为 %s/%s",
+  "message.elytra_component.enchants_returned": "§a已返还附魔书"
 }

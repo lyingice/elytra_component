@@ -12,51 +12,25 @@ import net.minecraft.world.item.Items;
 
 import javax.annotation.Nullable;
 
-/**
- * 公共 API，供其他模组调用。
- * 提供注册、查询、创建/还原鞘翅组件的静态方法。
- */
 public class ElytraComponentAPI {
 
-    /**
-     * 代码注册鞘翅组件定义（优先级高于数据包 JSON）
-     *
-     * @param componentId 唯一标识符
-     * @param def         组件定义
-     */
     public static void register(String componentId, ElytraComponentDefinition def) {
         ElytraComponentReloadListener.registerDirectly(componentId, def);
     }
 
-    /**
-     * 检查某个物品是否是已注册的鞘翅组件源
-     */
     public static boolean isRegisteredElytra(ItemStack stack) {
         return ElytraComponentReloadListener.isRegisteredElytra(stack.getItem());
     }
 
-    /**
-     * 获取某个胸甲当前安装的鞘翅组件
-     */
     @Nullable
     public static ElytraComponent getComponent(ItemStack chestplate) {
         return chestplate.get(ModComponents.ELYTRA_COMPONENT.get());
     }
 
-    /**
-     * 检查胸甲是否已安装鞘翅组件
-     */
     public static boolean hasComponent(ItemStack chestplate) {
         return chestplate.has(ModComponents.ELYTRA_COMPONENT.get());
     }
 
-    /**
-     * 从鞘翅物品和定义创建组件实例
-     *
-     * @param elytraStack       鞘翅物品
-     * @param def               组件定义
-     * @param originalChestAttrs 原始胸甲属性（安装时保存，拆卸时恢复），可为 null
-     */
     public static ElytraComponent createComponent(ItemStack elytraStack, ElytraComponentDefinition def,
                                                   @Nullable CompoundTag originalChestAttrs) {
         int maxDurability = def.durability().calculateDurability(elytraStack.getMaxDamage());
@@ -71,40 +45,27 @@ public class ElytraComponentAPI {
         return new ElytraComponent(
                 def.getSourceNamespace(),
                 def.elytraItem(),
-                elytraStack.getComponents(),
+                null,
                 currentDurability,
                 maxDurability,
                 textureOverride,
-                null,                    // extraData
-                originalChestAttrs,      // 原始胸甲属性
-                null,                    // abilityConfig（未来扩展）
-                null                     // particleConfig（未来扩展）
+                null,
+                originalChestAttrs,
+                null,
+                null
         );
     }
 
-    // 保留旧方法兼容
     public static ElytraComponent createComponent(ItemStack elytraStack, ElytraComponentDefinition def) {
         return createComponent(elytraStack, def, null);
     }
 
-    /**
-     * 从组件还原鞘翅物品（用于剪刀拆卸）
-     *
-     * @param component 组件实例
-     * @return 还原的鞘翅 ItemStack
-     */
     public static ItemStack restoreElytra(ElytraComponent component) {
         var item = BuiltInRegistries.ITEM.get(component.originalElytraId());
-
-        // 如果物品不存在（模组未加载），返回空气
-        if (item == Items.AIR) {
-            return ItemStack.EMPTY;
-        }
+        if (item == Items.AIR) return ItemStack.EMPTY;
 
         ItemStack elytra = new ItemStack(item, 1);
-        elytra.applyComponents(component.originalElytraComponents());
 
-        // 按组件耐久比例设置还原鞘翅的耐久
         if (elytra.isDamageableItem()) {
             int maxDamage = elytra.getMaxDamage();
             float ratio = (float) component.currentDurability() / component.maxDurability();
@@ -115,17 +76,11 @@ public class ElytraComponentAPI {
         return elytra;
     }
 
-    /**
-     * 设置胸甲的鞘翅组件
-     */
     public static void setComponent(ItemStack chestplate, ElytraComponent component) {
         chestplate.set(ModComponents.ELYTRA_COMPONENT.get(), component);
         chestplate.set(ModComponents.CAN_ELYTRA_FLY.get(), true);
     }
 
-    /**
-     * 移除胸甲的鞘翅组件
-     */
     public static void removeComponent(ItemStack chestplate) {
         chestplate.remove(ModComponents.ELYTRA_COMPONENT.get());
         chestplate.remove(ModComponents.CAN_ELYTRA_FLY.get());

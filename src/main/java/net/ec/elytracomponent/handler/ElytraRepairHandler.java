@@ -153,7 +153,7 @@ public class ElytraRepairHandler {
         ElytraComponent repairedComponent = new ElytraComponent(
                 component.sourceNamespace(),
                 component.originalElytraId(),
-                component.originalElytraComponents(),
+                component.originalElytraTag(),
                 newDurability,
                 component.maxDurability(),
                 component.textureOverride(),

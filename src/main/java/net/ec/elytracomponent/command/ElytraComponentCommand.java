@@ -252,7 +252,7 @@ public class ElytraComponentCommand {
                         Component.literal("§7纹理覆盖: §f" + component.textureOverride()), false);
             }
 
-            int dataCount = component.originalElytraComponents().size();
+            int dataCount = component.originalElytraTag() != null ? component.originalElytraTag().size() : 0;
             ctx.getSource().sendSuccess(() ->
                     Component.literal("§7保留的原组件数据: §f" + dataCount + " 个"), false);
             count++;
@@ -278,14 +278,14 @@ public class ElytraComponentCommand {
             ElytraComponent updated = new ElytraComponent(
                     old.sourceNamespace(),
                     old.originalElytraId(),
-                    old.originalElytraComponents(),
+                    old.originalElytraTag(),            // ← 改
                     newDurability,
                     old.maxDurability(),
                     old.textureOverride(),
                     old.extraData(),
-                    old.originalChestAttributes(),   // 保留
-                    old.abilityConfig(),              // 保留
-                    old.particleConfig()              // 保留
+                    old.originalChestAttributes(),
+                    old.abilityConfig(),
+                    old.particleConfig()
             );
             chestplate.set(ModComponents.ELYTRA_COMPONENT.get(), updated);
             player.setItemSlot(EquipmentSlot.CHEST, chestplate);
