@@ -144,11 +144,20 @@ public class ElytraComponentReloadListener extends SimpleJsonResourceReloadListe
 
     // ==================== 内部辅助方法 ====================
 
+/**
+ * 重建物品索引的方法
+ * 此方法会遍历注册表中的所有值，并将它们映射到对应的物品上
+ * 最终创建一个不可修改的映射表，用于快速查找物品对应的组件定义
+ */
     private static void rebuildItemIndex() {
+        // 创建一个新的HashMap用于存储物品索引
         Map<ResourceLocation, ElytraComponentDefinition> index = new HashMap<>();
+        // 遍历注册表中的所有值
         for (ElytraComponentDefinition def : REGISTRY.values()) {
+            // 将物品作为键，组件定义作为值存入索引
             index.put(def.elytraItem(), def);
         }
+        // 将创建的索引设置为不可修改的映射表，并赋值给ITEM_INDEX
         ITEM_INDEX = Collections.unmodifiableMap(index);
     }
 

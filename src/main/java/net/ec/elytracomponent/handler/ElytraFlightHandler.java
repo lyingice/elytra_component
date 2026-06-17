@@ -1,8 +1,11 @@
 package net.ec.elytracomponent.handler;
 
 import net.ec.elytracomponent.ElytraComponentMod;
+import net.ec.elytracomponent.api.ability.ElytraAbilityRegistry;
+import net.ec.elytracomponent.api.ability.IElytraAbility;
 import net.ec.elytracomponent.component.ElytraComponent;
 import net.ec.elytracomponent.component.ModComponents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -22,6 +25,7 @@ public class ElytraFlightHandler {
 
     @SubscribeEvent
     public static void onLivingTick(EntityTickEvent.Post event) {
+
         if (!(event.getEntity() instanceof LivingEntity living)) return;
         if (living.level().isClientSide) return;
 
@@ -38,6 +42,16 @@ public class ElytraFlightHandler {
 
         ElytraComponent component = chestStack.get(ModComponents.ELYTRA_COMPONENT.get());
         if (component == null) return;
+        // 在 ElytraFlightHandler.onLivingTick 中
+        CompoundTag abilityConfig = component.abilityConfig();
+        if (abilityConfig != null && abilityConfig.contains("type")) {
+            String abilityId = abilityConfig.getString("type");
+            IElytraAbility ability = ElytraAbilityRegistry.create(abilityId);
+            if (ability != null && ability.onFlightTick((Player) living, chestStack, component)) {
+                return; // 能力接管了飞行，跳过默认耐久消耗
+            }
+        }
+// 否则走默认耐久消耗逻辑...
         // 每 10 tick 消耗 1 点耐久
         if (living.tickCount % 10 == 0) {
             int newDurability = component.currentDurability() - 1;

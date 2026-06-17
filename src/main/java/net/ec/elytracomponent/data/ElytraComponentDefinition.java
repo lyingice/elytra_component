@@ -72,9 +72,6 @@ public record ElytraComponentDefinition(
     }
 
     public ResourceLocation getSourceNamespace() {
-        return ResourceLocation.fromNamespaceAndPath(
-                elytraItem.getNamespace(),
-                "elytra_component"
-        );
+        return elytraItem;  // 直接显示原物品ID，如 mut:iron_elytra
     }
 }

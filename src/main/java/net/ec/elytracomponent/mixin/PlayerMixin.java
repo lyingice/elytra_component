@@ -2,6 +2,7 @@ package net.ec.elytracomponent.mixin;
 
 import net.ec.elytracomponent.component.ElytraComponent;
 import net.ec.elytracomponent.component.ModComponents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
@@ -25,6 +26,11 @@ public class PlayerMixin {
             ElytraComponent component = chestStack.get(ModComponents.ELYTRA_COMPONENT.get());
 
             if (component != null && component.currentDurability() > 0) {
+                // 检查是否有能力接管
+                CompoundTag config = component.abilityConfig();
+                if (config != null && config.contains("type")) {
+                    return; // 有能力接管，不启动默认鞘翅飞行
+                }
                 self.startFallFlying();
                 cir.setReturnValue(true);
             }

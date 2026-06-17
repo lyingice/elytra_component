@@ -4,7 +4,7 @@ license="MIT license"
 
 [[mods]]
 modId="elytra_component"
-version="1.1.2"
+version="1.2.0"
 displayName="Elytra Component"
 displayURL="https://mcreator.net"
 credits="鞘翅组件"

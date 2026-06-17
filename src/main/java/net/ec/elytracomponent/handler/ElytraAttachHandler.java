@@ -112,6 +112,7 @@ public class ElytraAttachHandler {
         net.minecraft.network.chat.Component elytraName = mainHand.getHoverName();
 
         ElytraComponent component = ElytraComponentAPI.createComponent(mainHand, def, originalChestAttrs);
+
         ElytraComponentAPI.setComponent(chestplate, component);
         player.setItemSlot(EquipmentSlot.CHEST, chestplate);
 

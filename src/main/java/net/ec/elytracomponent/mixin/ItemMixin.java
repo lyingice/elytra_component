@@ -3,6 +3,7 @@ package net.ec.elytracomponent.mixin;
 import net.ec.elytracomponent.ElytraComponentMod;
 import net.ec.elytracomponent.component.ElytraComponent;
 import net.ec.elytracomponent.component.ModComponents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -14,12 +15,14 @@ public abstract class ItemMixin implements IItemExtension {
 
     @Override
     public boolean canElytraFly(ItemStack stack, LivingEntity entity) {
-        // 检查是否有我们的组件
         ElytraComponent component = stack.get(ModComponents.ELYTRA_COMPONENT.get());
         if (component != null && component.currentDurability() > 0) {
+            CompoundTag config = component.abilityConfig();
+            if (config != null && config.contains("type")) {
+                return false; // 有能力接管，不触发原版飞行检测
+            }
             return true;
         }
-        // 没有组件时，返回 false，让原版鞘翅类自己处理
         return false;
     }
 

@@ -17,6 +17,7 @@ import net.minecraft.client.renderer.entity.layers.ElytraLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
@@ -46,7 +47,14 @@ public class ComponentElytraLayer<T extends LivingEntity, M extends EntityModel<
         ItemStack chestStack = entity.getItemBySlot(EquipmentSlot.CHEST);
 
         if (!shouldRender(chestStack, entity)) return;
-
+        // ========== 新增：检查能力接管 ==========
+        ElytraComponent component = chestStack.get(ModComponents.ELYTRA_COMPONENT.get());
+        if (component != null) {
+            CompoundTag abilityConfig = component.abilityConfig();
+            if (abilityConfig != null && abilityConfig.contains("type")) {
+                return; // 有能力接管，不渲染默认鞘翅，交给附属模组渲染
+            }
+        }
         ResourceLocation texture = getElytraTexture(chestStack, entity);
 
         poseStack.pushPose();
