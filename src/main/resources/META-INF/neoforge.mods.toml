@@ -16,6 +16,9 @@ authors="Lyingice"
 [[mixins]]
     config = "elytra_component.mixins.json"
 
+[[mixins]]
+    config = "elytra_component_flight.mixins.json"
+
 # Start of user code block custom mixins
 # End of user code block custom mixins
 

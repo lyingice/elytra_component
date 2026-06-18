@@ -14,84 +14,92 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 
-/**
- * 处理安装了 ElytraComponent 的胸甲的飞行耐久消耗。
- * - 每 10 tick 消耗 1 点组件耐久
- * - 创造模式/旁观者不消耗
- * - 组件耐久耗尽时停止飞行
- */
 @EventBusSubscriber(modid = ElytraComponentMod.MODID)
 public class ElytraFlightHandler {
 
+    // ==================== 可自定义：飞行条件 ====================
+
+    public static boolean canHandleFlight(LivingEntity living) {
+        if (living.level().isClientSide) return false;
+        if (living instanceof Player player && player.getAbilities().instabuild) return false;
+        if (living.isSpectator()) return false;
+        return true;
+    }
+
+    public static boolean hasComponent(LivingEntity living) {
+        ItemStack chest = living.getItemBySlot(EquipmentSlot.CHEST);
+        return chest.has(ModComponents.ELYTRA_COMPONENT.get());
+    }
+
+    // ==================== 事件 ====================
+
     @SubscribeEvent
     public static void onLivingTick(EntityTickEvent.Post event) {
-
         if (!(event.getEntity() instanceof LivingEntity living)) return;
-        if (living.level().isClientSide) return;
+        if (!canHandleFlight(living)) return;
+        if (!hasComponent(living)) return;
 
-        // 创造模式/旁观者模式不消耗耐久
-        if (living instanceof Player player && player.getAbilities().instabuild) return;
-        if (living.isSpectator()) return;
-
-        // 必须穿着有组件的胸甲
         ItemStack chestStack = living.getItemBySlot(EquipmentSlot.CHEST);
-        if (!chestStack.has(ModComponents.ELYTRA_COMPONENT.get())) return;
-
-        // 必须在飞行中
-        if (!living.isFallFlying()) return;
-
         ElytraComponent component = chestStack.get(ModComponents.ELYTRA_COMPONENT.get());
         if (component == null) return;
-        // 在 ElytraFlightHandler.onLivingTick 中
+
+        // 能力接管
+        if (onAbilityTick(living, chestStack, component)) return;
+
+        // 默认鞘翅逻辑（必须在飞行中）
+        if (!living.isFallFlying()) return;
+        onDefaultFlightTick(living, chestStack, component);
+    }
+
+    // ==================== 可自定义：能力接管 ====================
+
+    public static boolean onAbilityTick(LivingEntity living, ItemStack chestStack, ElytraComponent component) {
         CompoundTag abilityConfig = component.abilityConfig();
-        if (abilityConfig != null && abilityConfig.contains("type")) {
-            String abilityId = abilityConfig.getString("type");
-            IElytraAbility ability = ElytraAbilityRegistry.create(abilityId);
-            if (ability != null && ability.onFlightTick((Player) living, chestStack, component)) {
-                return; // 能力接管了飞行，跳过默认耐久消耗
-            }
+        if (abilityConfig == null || !abilityConfig.contains("type")) return false;
+
+        String abilityId = abilityConfig.getString("type");
+        IElytraAbility ability = ElytraAbilityRegistry.create(abilityId);
+        if (ability == null) return false;
+
+        return ability.onFlightTick((Player) living, chestStack, component);
+    }
+
+    // ==================== 可自定义：默认耐久消耗 ====================
+
+    public static void onDefaultFlightTick(LivingEntity living, ItemStack chestStack, ElytraComponent component) {
+        if (living.tickCount % 10 != 0) return;
+
+        int newDurability = component.currentDurability() - 1;
+        if (newDurability <= 0) {
+            onDurabilityDepleted(living, chestStack, component);
+        } else {
+            onDurabilityConsume(living, chestStack, component, newDurability);
         }
-// 否则走默认耐久消耗逻辑...
-        // 每 10 tick 消耗 1 点耐久
-        if (living.tickCount % 10 == 0) {
-            int newDurability = component.currentDurability() - 1;
+    }
 
-            if (newDurability <= 0) {
-                // 耐久耗尽
-                ElytraComponent brokenComponent = new ElytraComponent(
-                        component.sourceNamespace(),
-                        component.originalElytraId(),
-                        component.originalElytraTag(),
-                        0,
-                        component.maxDurability(),
-                        component.textureOverride(),
-                        component.extraData(),
-                        component.originalChestAttributes(),
-                        component.abilityConfig(),
-                        component.particleConfig()
-                );
-                chestStack.set(ModComponents.ELYTRA_COMPONENT.get(), brokenComponent);
-            } else {
-                // 正常消耗
-                ElytraComponent updatedComponent = new ElytraComponent(
-                        component.sourceNamespace(),
-                        component.originalElytraId(),
-                        component.originalElytraTag(),
-                        newDurability,
-                        component.maxDurability(),
-                        component.textureOverride(),
-                        component.extraData(),
-                        component.originalChestAttributes(),
-                        component.abilityConfig(),
-                        component.particleConfig()
-                );
-                chestStack.set(ModComponents.ELYTRA_COMPONENT.get(), updatedComponent);
+    public static void onDurabilityDepleted(LivingEntity living, ItemStack chestStack, ElytraComponent component) {
+        ElytraComponent broken = new ElytraComponent(
+                component.sourceNamespace(), component.originalElytraId(),
+                component.originalElytraTag(), 0, component.maxDurability(),
+                component.textureOverride(), component.extraData(),
+                component.originalChestAttributes(), component.abilityConfig(),
+                component.particleConfig()
+        );
+        chestStack.set(ModComponents.ELYTRA_COMPONENT.get(), broken);
+    }
 
-                // 每 20 tick 触发滑翔游戏事件
-                if (living.tickCount % 20 == 0) {
-                    living.gameEvent(net.minecraft.world.level.gameevent.GameEvent.ELYTRA_GLIDE);
-                }
-            }
+    public static void onDurabilityConsume(LivingEntity living, ItemStack chestStack, ElytraComponent component, int newDurability) {
+        ElytraComponent updated = new ElytraComponent(
+                component.sourceNamespace(), component.originalElytraId(),
+                component.originalElytraTag(), newDurability, component.maxDurability(),
+                component.textureOverride(), component.extraData(),
+                component.originalChestAttributes(), component.abilityConfig(),
+                component.particleConfig()
+        );
+        chestStack.set(ModComponents.ELYTRA_COMPONENT.get(), updated);
+
+        if (living.tickCount % 20 == 0) {
+            living.gameEvent(net.minecraft.world.level.gameevent.GameEvent.ELYTRA_GLIDE);
         }
     }
 }

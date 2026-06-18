@@ -55,6 +55,10 @@ public class ElytraComponentMod {
 		modEventBus.addListener(this::registerNetworking);
 
 		// Start of user code block mod init
+
+		// 初始化飞行库 API
+		net.ec.elytracomponent.api.flight.init.FlightLibInit.init(modEventBus);
+
 		// End of user code block mod init
 	}
 

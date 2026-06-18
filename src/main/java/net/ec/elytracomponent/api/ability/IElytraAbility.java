@@ -1,6 +1,7 @@
 package net.ec.elytracomponent.api.ability;
 
 import net.ec.elytracomponent.component.ElytraComponent;
+import net.ec.elytracomponent.data.ElytraComponentDefinition;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -40,5 +41,8 @@ public interface IElytraAbility {
     default void addTooltip(ItemStack stack, ElytraComponent component, List<Component> tooltip) {
         // 默认实现：显示类型名称
         tooltip.add(Component.translatable("tooltip.elytra_component.elytra_installed"));
+    }
+    default void appendJeiDescription(List<Component> lines, ElytraComponentDefinition def) {
+        // 默认空实现，附属模组覆盖
     }
 }

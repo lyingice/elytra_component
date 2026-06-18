@@ -14,7 +14,10 @@
 },
 "render": {
 "has_glow": false
-}
+},
+  "compatibility": {
+    "required_mods": ["enigmaticlegacyplus"]
+  }
 },
   {
     "component_id": "chaos_elytra",
@@ -29,6 +32,9 @@
     },
     "render": {
       "has_glow": false
+    },
+    "compatibility": {
+      "required_mods": ["enigmaticlegacyplus"]
     }
 }
 ]}

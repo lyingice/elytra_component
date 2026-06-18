@@ -91,8 +91,12 @@ public class ElytraComponentJeiPlugin implements IModPlugin {
 
     // 添加标题行，显示组件数量，使用金色样式
         root = root.copy().append(Component.translatable("jei.elytra_component.info.header",
-                defs.size()).withStyle(ChatFormatting.GOLD));
+                defs.size()).withStyle(ChatFormatting.BLUE));
     // 添加两个换行符
+        root = root.copy().append(Component.literal("\n\n"));
+
+        root = root.copy().append(Component.translatable("jei.elytra_component.info.footer")
+                .withStyle(ChatFormatting.BLUE));
         root = root.copy().append(Component.literal("\n\n"));
 
     // 遍历所有组件定义
@@ -106,7 +110,7 @@ public class ElytraComponentJeiPlugin implements IModPlugin {
 
         // 添加组件标识符（黄色方块）和组件ID（白色文本）
             root = root.copy().append(Component.literal("■ ")
-                    .withStyle(ChatFormatting.YELLOW));
+                    .withStyle(ChatFormatting.WHITE));
             root = root.copy().append(Component.literal(def.componentId())
                     .withStyle(ChatFormatting.WHITE));
 
@@ -141,11 +145,6 @@ public class ElytraComponentJeiPlugin implements IModPlugin {
                 root = root.copy().append(Component.literal("\n  §7依赖: §d" + String.join("§7, §d", def.compatibility().requiredMods())));
             }
         }
-
-    // 添加底部信息和两个换行符
-        root = root.copy().append(Component.literal("\n\n"));
-        root = root.copy().append(Component.translatable("jei.elytra_component.info.footer")
-                .withStyle(ChatFormatting.GRAY));
 
         return root;
     }

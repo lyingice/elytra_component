@@ -10,7 +10,10 @@
     },
     "texture": {
       "elytra_layer": "rainbowcompound:textures/entity/rainbow_elytra.png"
-     }
+     },
+      "compatibility": {
+        "required_mods": ["rainbowcompound"]
+      }
     }
   ]
 }
