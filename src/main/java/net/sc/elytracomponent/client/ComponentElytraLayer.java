@@ -15,6 +15,7 @@ import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.ElytraLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
@@ -43,6 +44,15 @@ public class ComponentElytraLayer<T extends LivingEntity, M extends EntityModel<
         ItemStack chestStack = entity.getItemBySlot(EquipmentSlot.CHEST);
 
         if (!shouldRender(chestStack, entity)) return;
+
+        // ========== 检查能力接管 ==========
+        ElytraComponent component = ModComponents.getComponent(chestStack);
+        if (component != null) {
+            CompoundTag abilityConfig = component.abilityConfig();
+            if (abilityConfig != null && abilityConfig.contains("type")) {
+                return; // 有能力接管，不渲染默认鞘翅，交给附属模组渲染
+            }
+        }
 
         ResourceLocation texture = getElytraTexture(chestStack, entity);
 

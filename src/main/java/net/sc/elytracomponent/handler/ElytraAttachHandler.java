@@ -1,13 +1,14 @@
 package net.sc.elytracomponent.handler;
 
-import net.minecraft.nbt.CompoundTag;
 import net.sc.elytracomponent.ElytraComponentMod;
 import net.sc.elytracomponent.api.ElytraComponentAPI;
+import net.sc.elytracomponent.api.ElytraAttachAPI;
 import net.sc.elytracomponent.component.ElytraComponent;
 import net.sc.elytracomponent.component.ModComponents;
 import net.sc.elytracomponent.data.ElytraComponentDefinition;
 import net.sc.elytracomponent.data.ElytraComponentReloadListener;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -17,10 +18,17 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+
+import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 @EventBusSubscriber(modid = ElytraComponentMod.MODID)
 public class ElytraAttachHandler {
@@ -59,10 +67,13 @@ public class ElytraAttachHandler {
         ItemStack chestplate = player.getItemBySlot(EquipmentSlot.CHEST);
         if (chestplate.isEmpty()) return false;
 
+        // 调用 API 检查
+        if (!ElytraAttachAPI.canAttach(player, mainHand, offHand, chestplate)) return false;
+
         if (level.isClientSide) return true;
 
-        ElytraComponent existing = ModComponents.getComponent(chestplate);
-        if (existing != null && existing.currentDurability() > 0) {
+        // 调用 API 检查已有组件
+        if (ElytraAttachAPI.hasExistingComponent(chestplate)) {
             player.displayClientMessage(
                     net.minecraft.network.chat.Component.translatable(
                             "message.elytra_component.already_has_component",
@@ -70,8 +81,11 @@ public class ElytraAttachHandler {
             return true;
         }
 
-        ElytraComponentDefinition def = ElytraComponentReloadListener.findByItem(mainHand.getItem());
+        ElytraComponentDefinition def = ElytraAttachAPI.getDefinition(mainHand);
         if (def == null) return false;
+
+        // ========== 安装前回调 ==========
+        ElytraAttachAPI.onBeforeAttach(player, chestplate, mainHand);
 
         // ========== 保存原始胸甲属性 ==========
         CompoundTag originalChestAttrs = null;
@@ -88,6 +102,13 @@ public class ElytraAttachHandler {
             chestplate.getOrCreateTag().put("AttributeModifiers", merged);
         }
 
+        // ========== 提取附魔，准备返还 ==========
+        // 1.20.1: EnchantmentHelper.getEnchantments 返回 Map<Enchantment, Integer>
+        Map<Enchantment, Integer> enchantments = null;
+        if (mainHand.isEnchanted()) {
+            enchantments = net.minecraft.world.item.enchantment.EnchantmentHelper.getEnchantments(mainHand);
+        }
+
         net.minecraft.network.chat.Component chestplateName = chestplate.getHoverName();
         net.minecraft.network.chat.Component elytraName = mainHand.getHoverName();
 
@@ -96,13 +117,29 @@ public class ElytraAttachHandler {
         ElytraComponentAPI.setComponent(chestplate, component);
         player.setItemSlot(EquipmentSlot.CHEST, chestplate);
 
+        // 消耗鞘翅
         mainHand.shrink(1);
         player.setItemInHand(InteractionHand.MAIN_HAND, mainHand);
+
+        // 返还附魔书
+        if (enchantments != null && !enchantments.isEmpty()) {
+            ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
+            net.minecraft.world.item.enchantment.EnchantmentHelper.setEnchantments(enchantments, enchantedBook);
+            if (!player.getInventory().add(enchantedBook)) {
+                player.drop(enchantedBook, false);
+            }
+            player.displayClientMessage(
+                    net.minecraft.network.chat.Component.translatable(
+                            "message.elytra_component.enchants_returned"), true);
+        }
 
         if (!player.getAbilities().instabuild) {
             offHand.shrink(1);
             player.setItemInHand(InteractionHand.OFF_HAND, offHand);
         }
+
+        // ========== 安装后回调 ==========
+        ElytraAttachAPI.onAfterAttach(player, chestplate, component);
 
         level.playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 0.8F, 1.2F);

@@ -16,18 +16,22 @@ public class ClientModEvents {
 
     @SubscribeEvent
     public static void onAddLayers(EntityRenderersEvent.AddLayers event) {
+        // 初始化纹饰纹理
         ElytraTrimTextures.init();
 
+        // 玩家 - 宽模型
         PlayerRenderer defaultSkin = event.getSkin("default");
         if (defaultSkin != null) {
             defaultSkin.addLayer(new ComponentElytraLayer<>(defaultSkin, event.getEntityModels()));
         }
 
+        // 玩家 - 纤细模型
         PlayerRenderer slimSkin = event.getSkin("slim");
         if (slimSkin != null) {
             slimSkin.addLayer(new ComponentElytraLayer<>(slimSkin, event.getEntityModels()));
         }
 
+        // 盔甲架
         ArmorStandRenderer armorStandRenderer = event.getRenderer(EntityType.ARMOR_STAND);
         if (armorStandRenderer != null) {
             armorStandRenderer.addLayer(new ComponentElytraLayer<>(armorStandRenderer, event.getEntityModels()));

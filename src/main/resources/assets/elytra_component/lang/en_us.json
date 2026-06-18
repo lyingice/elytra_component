@@ -24,5 +24,6 @@
   "jei.elytra_component.info.header": "§6Elytra Components that can be installed on Chestplates (%s)",
   "jei.elytra_component.info.footer": "§7Hold the Elytra in main hand and a Slime Ball in off hand, then right-click to install",
   "message.elytra_component.repair_not_needed": "§e%s's durability is already sufficient",
-  "message.elytra_component.repair_success": "§eRepaired %s to %s/%s"
+  "message.elytra_component.repair_success": "§eRepaired %s to %s/%s",
+  "message.elytra_component.enchants_returned": "§aGive back enchantment books"
 }

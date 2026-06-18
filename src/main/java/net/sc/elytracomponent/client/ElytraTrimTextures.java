@@ -30,10 +30,10 @@ public class ElytraTrimTextures {
         register("host", "host");
 
         // 1.21 试炼密室
-        //register("bolt", "bolt");
-        //register("flow", "flow");
+        register("bolt", "bolt");
+        register("flow", "flow");
         // 1.21 下界
-        //register("spire", "spire");
+        register("spire", "spire");
     }
 
     private static void register(String patternName, String textureName) {

@@ -15,6 +15,14 @@ import net.minecraftforge.fml.util.thread.SidedThreadGroups;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.CapabilityManager;
+import net.minecraftforge.common.capabilities.CapabilityToken;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.fml.ModList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -59,9 +67,9 @@ public class ElytraComponentMod {
     private static int messageID = 0;
 
     public static <T> void addNetworkMessage(Class<T> messageType,
-                                             BiConsumer<T, FriendlyByteBuf> encoder,
-                                             Function<FriendlyByteBuf, T> decoder,
-                                             BiConsumer<T, Supplier<net.minecraftforge.network.NetworkEvent.Context>> messageConsumer) {
+                                              BiConsumer<T, FriendlyByteBuf> encoder,
+                                              Function<FriendlyByteBuf, T> decoder,
+                                              BiConsumer<T, Supplier<net.minecraftforge.network.NetworkEvent.Context>> messageConsumer) {
         PACKET_HANDLER.registerMessage(messageID, messageType, encoder, decoder, messageConsumer);
         messageID++;
     }
@@ -85,6 +93,34 @@ public class ElytraComponentMod {
             });
             actions.forEach(e -> e.getKey().run());
             workQueue.removeAll(actions);
+        }
+    }
+
+    // ========== Curios 兼容 ==========
+
+    public static class CuriosApiHelper {
+        private static Capability<IItemHandler> CURIOS_INVENTORY = null;
+
+        static {
+            try {
+                if (ModList.get().isLoaded("curios")) {
+                    CURIOS_INVENTORY = CapabilityManager.get(new CapabilityToken<>(){});
+                }
+            } catch (Exception e) {
+                LOGGER.warn("Failed to initialize Curios capability: {}", e.getMessage());
+                CURIOS_INVENTORY = null;
+            }
+        }
+
+        public static IItemHandler getCuriosInventory(Player player) {
+            if (CURIOS_INVENTORY != null && ModList.get().isLoaded("curios")) {
+                return player.getCapability(CURIOS_INVENTORY).resolve().orElse(null);
+            }
+            return null;
+        }
+
+        public static boolean isCurioItem(ItemStack itemstack) {
+            return BuiltInRegistries.ITEM.getTagNames().filter(tagKey -> tagKey.location().getNamespace().equals("curios")).anyMatch(itemstack::is);
         }
     }
 }
