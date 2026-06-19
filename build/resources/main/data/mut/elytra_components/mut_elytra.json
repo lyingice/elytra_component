@@ -13,6 +13,9 @@
       },
       "render": {
         "has_glow": false
+      },
+      "compatibility": {
+        "required_mods": ["mut"]
       }
     },
     {
@@ -28,6 +31,9 @@
       },
       "render": {
         "has_glow": false
+      },
+      "compatibility": {
+        "required_mods": ["mut"]
       }
     },
     {
@@ -43,6 +49,9 @@
       },
       "render": {
         "has_glow": false
+      },
+      "compatibility": {
+        "required_mods": ["mut"]
       }
     },
     {
@@ -58,6 +67,9 @@
       },
       "render": {
         "has_glow": false
+      },
+      "compatibility": {
+        "required_mods": ["mut"]
       }
     }
   ]

@@ -42,19 +42,17 @@ public class ElytraComponentAPI {
             textureOverride = def.texture().elytraLayer();
         }
 
-        CompoundTag elytraTag = elytraStack.getTag();
-
         return new ElytraComponent(
                 def.getSourceNamespace(),
                 def.elytraItem(),
-                null,                    // 不保存原始 NBT
+                elytraStack.getTag(),      // 保存原始 NBT（含附魔、属性等）
                 currentDurability,
                 maxDurability,
                 textureOverride,
-                null,                    // extraData
-                originalChestAttrs,      // 原始胸甲属性
-                null,                    // abilityConfig（未来扩展）
-                null                     // particleConfig（未来扩展）
+                null,
+                originalChestAttrs,
+                null,
+                null
         );
     }
 
@@ -67,6 +65,11 @@ public class ElytraComponentAPI {
         if (item == Items.AIR) return ItemStack.EMPTY;
 
         ItemStack elytra = new ItemStack(item, 1);
+
+        // 还原原始 NBT（附魔、名称等）
+        if (component.originalElytraTag() != null) {
+            elytra.setTag(component.originalElytraTag().copy());
+        }
 
         if (elytra.isDamageableItem()) {
             int maxDamage = elytra.getMaxDamage();
