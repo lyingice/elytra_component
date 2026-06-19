@@ -79,29 +79,19 @@ public class ElytraAttachHandler {
         ElytraComponentDefinition def = ElytraComponentReloadListener.findByItem(mainHand.getItem());
         if (def == null) return false;
 
-        // ========== 保存原始胸甲属性 ==========
-        CompoundTag originalChestAttrs = null;
-        ItemAttributeModifiers chestModifiers = chestplate.get(DataComponents.ATTRIBUTE_MODIFIERS);
-        if (chestModifiers != null) {
-            originalChestAttrs = new CompoundTag();
-            var modifiers = chestModifiers.modifiers();
-            originalChestAttrs.putInt("size", modifiers.size());
-            for (int i = 0; i < modifiers.size(); i++) {
-                var entry = modifiers.get(i);
-                CompoundTag entryTag = new CompoundTag();
-                entryTag.putString("attribute", entry.attribute().getRegisteredName());
-                entryTag.putDouble("amount", entry.modifier().amount());
-                entryTag.putString("operation", entry.modifier().operation().name());
-                entryTag.putString("slot", entry.slot().name());
-                originalChestAttrs.put("modifier_" + i, entryTag);
-            }
-        }
+        // ========== 获取胸甲当前完整的属性修饰符 ==========
+        ItemAttributeModifiers chestFullAttributes = chestplate.getAttributeModifiers();
 
-        // ========== 合并鞘翅属性到胸甲 ==========
+        // ========== 保存完整原始属性 ==========
+        CompoundTag originalChestAttrs = serializeModifiers(chestFullAttributes);
+
+        // ========== 合并：胸甲完整属性 + 鞘翅属性 ==========
         ItemAttributeModifiers elytraModifiers = mainHand.get(DataComponents.ATTRIBUTE_MODIFIERS);
         if (elytraModifiers != null && !elytraModifiers.modifiers().isEmpty()) {
+            List<ItemAttributeModifiers.Entry> merged = new ArrayList<>(chestFullAttributes.modifiers());
+            merged.addAll(elytraModifiers.modifiers());
             chestplate.set(DataComponents.ATTRIBUTE_MODIFIERS,
-                    mergeAttributeModifiers(chestModifiers, elytraModifiers));
+                    new ItemAttributeModifiers(merged, true));
         }
 
         // ========== 提取附魔 ==========
@@ -154,12 +144,22 @@ public class ElytraAttachHandler {
         return true;
     }
 
-    private static ItemAttributeModifiers mergeAttributeModifiers(
-            @Nullable ItemAttributeModifiers base,
-            ItemAttributeModifiers addition) {
-        if (base == null) return addition;
-        List<ItemAttributeModifiers.Entry> merged = new ArrayList<>(base.modifiers());
-        merged.addAll(addition.modifiers());
-        return new ItemAttributeModifiers(merged, true);
+    @Nullable
+    private static CompoundTag serializeModifiers(@Nullable ItemAttributeModifiers modifiers) {
+        if (modifiers == null || modifiers.modifiers().isEmpty()) return null;
+
+        CompoundTag tag = new CompoundTag();
+        List<ItemAttributeModifiers.Entry> list = modifiers.modifiers();
+        tag.putInt("size", list.size());
+        for (int i = 0; i < list.size(); i++) {
+            var entry = list.get(i);
+            CompoundTag entryTag = new CompoundTag();
+            entryTag.putString("attribute", entry.attribute().getRegisteredName());
+            entryTag.putDouble("amount", entry.modifier().amount());
+            entryTag.putString("operation", entry.modifier().operation().name());
+            entryTag.putString("slot", entry.slot().name());
+            tag.put("modifier_" + i, entryTag);
+        }
+        return tag;
     }
 }
