@@ -1,49 +1,17 @@
-plugins {
-    id 'eclipse'
-    id 'net.neoforged.moddev' version '2.0.141'
-}
+subprojects {
+    apply plugin: 'java'
 
-version = '1.2.1-neoforge'
-base.archivesName = "ElytraComponent"
+    java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
-
-neoForge {
-    version = "21.1.190"
-
-    runs {
-        client {
-            client()
-
-            def mcreatorJvmOptions = System.getenv('MCREATOR_JVM_OPTIONS')
-            if (mcreatorJvmOptions) {
-                mcreatorJvmOptions.split("\\s+").findAll { it.trim() }.each { arg ->
-                    jvmArgument(arg)
-                }
-            }
-        }
-        server {
-            server()
-        }
-
-        configureEach {
-            systemProperty 'forge.logging.markers', 'REGISTRIES'
-            logLevel = org.slf4j.event.Level.DEBUG
-        }
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
     }
 
-    mods {
-        mcreator {
-            sourceSet sourceSets.main
-        }
+    repositories {
+        mavenCentral()
+        maven { url = 'https://maven.neoforged.net/releases' }
+        maven { url = 'https://maven.minecraftforge.net/' }
+        maven { url = 'https://maven.blamejared.com' }
+        mavenLocal()
     }
 }
-
-dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
-}
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
-}
-
-apply from: 'mcreator.gradle'

@@ -1,11 +1,18 @@
 pluginManagement {
-    repositories {
-        mavenLocal()
+    repositories{
         gradlePluginPortal()
+        mavenLocal()
         maven { url = 'https://maven.neoforged.net/releases' }
+        maven { url = 'https://maven.minecraftforge.net/' }
     }
 }
 
 plugins {
     id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 }
+
+rootProject.name = 'ElytraComponent'
+
+include 'common'
+include 'neoforge'
+include 'forge'

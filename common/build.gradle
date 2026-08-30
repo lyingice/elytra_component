@@ -1,0 +1,21 @@
+plugins {
+    id 'java'
+}
+
+base {
+    archivesName = "ElytraComponent-common"
+}
+
+// 用 Java 17 编译，兼容 forge（17）与 neoforge（21）两个消费方
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+// common 模块仅用于共享资源文件（assets, data, pack.mcmeta）
+// Java 源码由各平台模块独立维护，以兼容不同 MC 版本的 API 差异
+// 这里的 Java 源码是历史遗留拷贝，不参与编译
+tasks.named('compileJava') {
+    enabled = false
+}
+
+tasks.named('jar') {
+    enabled = false
+}

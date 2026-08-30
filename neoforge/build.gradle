@@ -1,0 +1,49 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.141'
+}
+
+base {
+    archivesName = "ElytraComponent-neoforge"
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+dependencies {
+    compileOnly fileTree(dir: '../libs', include: ['jei-1.21.1-neoforge-19.27.0.340.jar'])
+    // 运行时测试 mod：输入法冲突修复（IMBlocker，仅 neoforge 版本存在）
+    runtimeOnly fileTree(dir: '../libs', include: ['*IMBlocker*.jar'])
+}
+
+neoForge {
+    version = "21.1.190"
+
+    runs {
+        client {
+            client()
+            def mcreatorJvmOptions = System.getenv('MCREATOR_JVM_OPTIONS')
+            if (mcreatorJvmOptions) {
+                mcreatorJvmOptions.split("\\s+").findAll { it.trim() }.each { arg ->
+                    jvmArgument(arg)
+                }
+            }
+        }
+        server {
+            server()
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        elytra_component {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

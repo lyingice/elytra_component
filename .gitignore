@@ -1,0 +1,11 @@
+# Gradle
+.gradle/
+build/
+
+# 运行目录 / IDE / 工具
+run/
+.idea/
+.eclipse/
+.mcreator/
+.zcode/
+*.iml

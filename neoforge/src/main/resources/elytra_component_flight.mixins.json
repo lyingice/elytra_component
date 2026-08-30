@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "net.ec.elytracomponent.api.flight.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "PlayerMixin",
+    "ServerGamePacketListenerImplAccessor"
+  ],
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "minVersion": "0.8.4"
+}
