@@ -1,0 +1,28 @@
+{
+  "message.elytra_component.elytra_detached": "§e已拆卸鞘翅：§f%s",
+
+  "tooltip.elytra_component.elytra_installed": "§7已安裝鞘翅元件",
+  "tooltip.elytra_component.durability": "§7鞘翅耐久：§e%s§7/§e%s",
+  "tooltip.elytra_component.source": "§7來源：§f%s",
+
+  "item.elytra_component.elytra_debug": "鞘翅元件除錯器",
+  "item.elytra_component.elytra_debug.tooltip": "右鍵查看胸甲上的鞘翅元件資訊",
+
+  "command.elytra_component.error.no_chestplate": "§c%s 的胸甲槽位為空",
+  "command.elytra_component.error.no_component": "§c%s 的胸甲上沒有鞘翅元件",
+  "command.elytra_component.error.invalid_elytra": "§c該物品不是已註冊的鞘翅元件",
+  "command.elytra_component.error.unknown_component": "§c未知的元件ID：%s",
+
+  "command.elytra_component.attach.success": "§a已將 §f%2$s §a安裝到 §f%1$s §a的胸甲上",
+  "command.elytra_component.detach.success": "§a已從 §f%1$s §a的胸甲拆卸 §f%2$s",
+  "command.elytra_component.durability.success": "§a已將 §f%1$s §a的組件耐久設為 §e%2$s§7/§e%3$s",
+  "command.elytra_component.give.success": "§a已將 §f%2$s §a給予 §f%1$s",
+  "message.elytra_component.elytra_attached": "§a已將 %2$s 安裝到 %1$s 上",
+  "message.elytra_component.already_has_component": "§c%1$s 已經安裝了鞘翅元件",
+
+  "jei.elytra_component.info.title": "鞘翅元件（%s）",
+  "jei.elytra_component.info.header": "§6可以安裝到胸甲的鞘翅元件（%s）",
+  "jei.elytra_component.info.footer": "§7在慣用手時非慣用手史萊姆球右鍵即可安裝",
+  "message.elytra_component.repair_not_needed": "§e%s 的耐久度已經足夠",
+  "message.elytra_component.repair_success": "§e已將 %s 修復為 %s/%s"
+}
